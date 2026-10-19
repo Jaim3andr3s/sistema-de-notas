@@ -1,0 +1,222 @@
+/* Colores del escudo IEMM */
+:root {
+  --azul: #0a3d9e;
+  --azul-oscuro: #062a70;
+  --amarillo: #ffd60a;
+  --rojo: #e3161b;
+  --blanco: #ffffff;
+  --negro: #111111;
+  --gris: #6b7280;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: 'Red Hat Display', system-ui, sans-serif;
+  color: var(--negro);
+  background: var(--azul);
+}
+
+/* ---------- Login ---------- */
+.login-page {
+  position: relative;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 32px 16px;
+  overflow: hidden;
+  background: radial-gradient(circle at 50% 0%, #1450c4 0%, var(--azul) 45%, var(--azul-oscuro) 100%);
+}
+
+/* Franjas amarilla-azul-roja como las del escudo */
+.franjas {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.franja {
+  position: absolute;
+  left: -20%;
+  width: 140%;
+  transform: rotate(-12deg);
+}
+.franja.amarilla { top: 58%; height: 70px; background: var(--amarillo); }
+.franja.azul     { top: calc(58% + 70px); height: 40px; background: #1450c4; }
+.franja.roja     { top: calc(58% + 110px); height: 40px; background: var(--rojo); }
+
+.login-card {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  max-width: 400px;
+  background: var(--blanco);
+  border-radius: 20px;
+  border-top: 6px solid var(--amarillo);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.35);
+  padding: 32px 28px 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.escudo {
+  width: 130px;
+  height: 130px;
+  margin: -90px auto 0;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 5px solid var(--blanco);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+  background: var(--blanco);
+}
+
+.titulo {
+  margin: 4px 0 0;
+  text-align: center;
+  font-size: 1.6rem;
+  font-weight: 900;
+  color: var(--azul);
+}
+.subtitulo {
+  margin: -8px 0 0;
+  text-align: center;
+  font-weight: 700;
+  font-size: 0.95rem;
+}
+.lema {
+  margin: -8px 0 4px;
+  text-align: center;
+  font-size: 0.8rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--rojo);
+  font-weight: 700;
+}
+
+.roles {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 4px;
+  padding: 4px;
+  background: #eef2fb;
+  border-radius: 10px;
+}
+.rol {
+  border: 0;
+  background: transparent;
+  padding: 8px 4px;
+  border-radius: 8px;
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--azul);
+  cursor: pointer;
+}
+.rol.activo {
+  background: var(--azul);
+  color: var(--amarillo);
+}
+
+.campo {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+.campo input {
+  width: 100%;
+  padding: 12px 14px;
+  border: 2px solid #d6dcea;
+  border-radius: 10px;
+  font: inherit;
+  font-weight: 500;
+  font-size: 1rem;
+  outline: none;
+  transition: border-color 0.15s;
+}
+.campo input:focus { border-color: var(--azul); }
+
+.input-clave { position: relative; }
+.input-clave input { padding-right: 76px; }
+.ver-clave {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  border: 0;
+  background: none;
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--azul);
+  cursor: pointer;
+}
+
+.error {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: #fde8e8;
+  color: var(--rojo);
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+.btn-primario {
+  margin-top: 4px;
+  padding: 13px;
+  border: 0;
+  border-radius: 10px;
+  background: var(--azul);
+  color: var(--blanco);
+  font: inherit;
+  font-size: 1rem;
+  font-weight: 900;
+  cursor: pointer;
+  box-shadow: inset 0 -4px 0 var(--amarillo);
+  transition: background 0.15s;
+}
+.btn-primario:hover:not(:disabled) { background: var(--azul-oscuro); }
+.btn-primario:disabled { opacity: 0.7; cursor: wait; }
+
+.olvido {
+  text-align: center;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--rojo);
+  text-decoration: none;
+}
+.olvido:hover { text-decoration: underline; }
+
+.pie {
+  position: relative;
+  z-index: 1;
+  margin-top: 24px;
+  color: var(--blanco);
+  font-size: 0.8rem;
+  opacity: 0.85;
+}
+
+/* ---------- Bienvenida (temporal) ---------- */
+.bienvenida {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 16px;
+  background: var(--blanco);
+  text-align: center;
+}
+.bienvenida h1 { color: var(--azul); margin: 8px 0 0; }
+.bienvenida-escudo { width: 120px; height: 120px; border-radius: 50%; object-fit: cover; }
+
+@media (max-width: 420px) {
+  .login-card { padding: 28px 18px 22px; }
+  .rol { font-size: 0.75rem; }
+}
