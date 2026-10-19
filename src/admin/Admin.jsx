@@ -4,6 +4,7 @@ import { Caja, ConDatos, Nota, Icono, Modal, Campo, Aviso, Vacio, useApi } from 
 import { Consolidado, Boletines } from '../compartido/Reportes.jsx'
 import Observador from '../compartido/Observador.jsx'
 import Perfil from '../compartido/Perfil.jsx'
+import SitioWeb from './SitioWeb.jsx'
 import { api } from '../api.js'
 import { ROLES, fecha, hoy } from '../util.js'
 
@@ -16,6 +17,7 @@ const MENU = [
   { id: 'boletines', nombre: 'Boletines', icono: 'description' },
   { id: 'observador', nombre: 'Observador', icono: 'fact_check' },
   { id: 'anuncios', nombre: 'Anuncios', icono: 'campaign' },
+  { id: 'sitio', nombre: 'Sitio web', icono: 'language' },
   { id: 'perfil', nombre: 'Mi perfil', icono: 'person' },
 ]
 
@@ -30,6 +32,7 @@ export default function Admin({ usuario, onSalir }) {
     boletines: <Boletines />,
     observador: <Observador usuario={usuario} />,
     anuncios: <Anuncios />,
+    sitio: <SitioWeb />,
     perfil: <Perfil usuario={usuario} />,
   }
   return (
@@ -498,13 +501,13 @@ function Periodos() {
 function Anuncios() {
   const consulta = useApi('/admin/anuncios')
   const grados = useApi('/admin/grados')
-  const [f, setF] = useState({ titulo: '', texto: '', fecha: hoy(), grado_id: '' })
+  const [f, setF] = useState({ titulo: '', texto: '', fecha: hoy(), grado_id: '', publico: false })
   const accion = useAccion()
 
   async function publicar(e) {
     e.preventDefault()
     if (await accion.ejecutar(() => api('/admin/anuncios', { method: 'POST', body: { ...f, grado_id: f.grado_id || null } }), 'Anuncio publicado')) {
-      setF({ titulo: '', texto: '', fecha: hoy(), grado_id: '' })
+      setF({ titulo: '', texto: '', fecha: hoy(), grado_id: '', publico: false })
       consulta.recargar()
     }
   }
@@ -529,6 +532,12 @@ function Anuncios() {
               </select>
             </Campo>
           </div>
+          {!f.grado_id && (
+            <label className="check">
+              <input type="checkbox" checked={f.publico} onChange={(e) => setF({ ...f, publico: e.target.checked })} />
+              Mostrar también en la agenda del sitio web
+            </label>
+          )}
           <Aviso tipo={accion.msg.tipo}>{accion.msg.texto}</Aviso>
           <div className="form-acciones"><button className="btn-primario">Publicar</button></div>
         </form>
@@ -543,7 +552,7 @@ function Anuncios() {
                   <div className="crece">
                     <strong>{a.titulo}</strong>
                     <p>{a.texto}</p>
-                    <small className="texto-suave">{a.grado ?? 'Toda la institución'}</small>
+                    <small className="texto-suave">{a.grado ?? 'Toda la institución'}{a.publico ? ' · Visible en el sitio web' : ''}</small>
                   </div>
                   <button className="btn-icono peligro" title="Eliminar" onClick={() => borrar(a)}><Icono nombre="delete" /></button>
                 </li>

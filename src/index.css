@@ -195,11 +195,16 @@ body {
 .pie {
   position: relative;
   z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
   margin-top: 24px;
   color: var(--blanco);
   font-size: 0.8rem;
-  opacity: 0.85;
 }
+.pie a { color: var(--amarillo); font-weight: 700; text-decoration: none; }
+.pie span { opacity: 0.85; }
 
 @media (max-width: 420px) {
   .login-card { padding: 28px 18px 22px; }

@@ -118,7 +118,10 @@ export default function Login({ onLogin }) {
         <p className="olvido-texto">¿Olvidaste tu contraseña? Comunícate con coordinación académica.</p>
       </form>
 
-      <footer className="pie">© {new Date().getFullYear()} IEMM · Sistema de Notas</footer>
+      <footer className="pie">
+        <a href="/">← Volver al sitio web del colegio</a>
+        <span>© {new Date().getFullYear()} IEMM · Sistema de Notas</span>
+      </footer>
     </div>
   )
 }

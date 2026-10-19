@@ -207,14 +207,41 @@ for (const [inicio, fin, dias] of HORARIO) {
   }
 }
 
-for (const [titulo, texto, fecha, gradoId] of [
-  ['Cierre de notas del Periodo 4', 'Los docentes deben registrar las notas definitivas antes del cierre.', '2026-11-27', null],
-  ['Entrega de boletines del Periodo 3', 'Reunión de padres de familia a las 7:00 a.m.', '2026-10-31', null],
-  ['Inicio de recuperaciones', 'Aplica para asignaturas con desempeño Bajo.', '2026-11-10', null],
-  ['Salida pedagógica 10°A', 'Visita al Museo del Caribe. Traer autorización firmada.', '2026-11-05', g10a],
+for (const [titulo, texto, fecha, gradoId, publico] of [
+  ['Cierre de notas del Periodo 4', 'Los docentes deben registrar las notas definitivas antes del cierre.', '2026-11-27', null, false],
+  ['Entrega de boletines del Periodo 3', 'Reunión de padres de familia y acudientes a las 7:00 a.m. en cada sede.', '2026-10-31', null, true],
+  ['Inicio de recuperaciones', 'Aplica para estudiantes con asignaturas en desempeño Bajo.', '2026-11-10', null, true],
+  ['Proceso de matrículas 2027', 'Inscripciones para estudiantes nuevos en la secretaría de la Sede Principal.', '2026-11-17', null, true],
+  ['Salida pedagógica 10°A', 'Visita al Museo del Caribe. Traer autorización firmada.', '2026-11-05', g10a, false],
 ]) {
-  await insertar('anuncios', { titulo, texto, fecha, grado_id: gradoId, autor_id: adminId })
+  await insertar('anuncios', { titulo, texto, fecha, grado_id: gradoId, publico, autor_id: adminId })
 }
+
+// Noticias del sitio web (basadas en las publicaciones del colegio en Facebook)
+const NOTICIAS = [
+  ['logros', '2026-09-25', true, 'Excelentes resultados en las Pruebas Saber 11 – 2026',
+    'Nuestros estudiantes de grado once obtuvieron puntajes sobresalientes, con un mejor resultado de 295 puntos.',
+    'La comunidad maximista celebra los resultados de las Pruebas Saber 11 – 2026. Los mejores puntajes de la institución superaron los 275 puntos, y el más alto llegó a 295.\n\nEste logro es fruto del esfuerzo de los estudiantes, el acompañamiento de las familias y el compromiso de nuestros docentes. ¡Caminamos hacia la excelencia!'],
+  ['cultura', '2026-10-04', false, 'Nuestra cumbia brilló en el Reinado Intercolegial',
+    'Nuestra representante en la categoría Preinfantil realizó su primera presentación oficial en la preliminar del Reinado Intercolegial de la Cumbia.',
+    'Con alegría, talento y amor por nuestra cumbia, nuestra representante en la categoría Preinfantil se presentó ante el jurado en la preliminar del Reinado Intercolegial de la Cumbia, dejando en alto el nombre de la Institución Educativa Máximo Mercado.\n\nInvitamos a toda la comunidad a seguir acompañándola en las próximas etapas de la competencia.'],
+  ['academico', '2026-10-01', false, 'Atla and Tico Week: una semana para vivir el inglés',
+    'Todas las sedes celebraron la Semana del Inglés con concursos de canto, baile, deletreo y el English Day.',
+    'La Semana del Inglés comenzó en la Sede Principal y recorrió las demás sedes de la institución. Los estudiantes participaron en concursos de canto y baile, en el concurso de deletreo y en el reto «¿Cuánto conoces a tu profesor?».\n\nEn el English Day de las sedes Simón Bolívar y Acción Comunal, los más pequeños presentaron con entusiasmo temas como su familia, su colegio, sus comidas y animales favoritos. También reconocimos a los estudiantes destacados en inglés.'],
+  ['institucional', '2026-10-05', false, 'Feliz Día del Directivo Docente',
+    'Reconocemos a quienes, con liderazgo y vocación de servicio, orientan el rumbo de nuestra institución.',
+    'En el Día del Directivo Docente, la comunidad maximista agradece a sus directivos por liderar con responsabilidad, escuchar, acompañar y hacer posible que la Institución Educativa Máximo Mercado siga creciendo y construyendo oportunidades para sus estudiantes.'],
+  ['eventos', '2026-09-15', false, 'Semana de la Convivencia Escolar',
+    'Actividades para aprender a respetar las diferencias y resolver los conflictos de forma pacífica.',
+    'Durante la Semana de la Convivencia Escolar, estudiantes y docentes participaron en actividades que promueven el respeto por las diferencias, el diálogo y la solución pacífica de conflictos, pilares de nuestro manual de convivencia.'],
+]
+for (const [categoria, fecha, destacada, titulo, resumen, contenido] of NOTICIAS) {
+  await insertar('noticias', { categoria, fecha, destacada, titulo, resumen, contenido, autor_id: adminId })
+}
+await insertar('mensajes_contacto', {
+  nombre: 'Madre de familia (ejemplo)', telefono: '3000000000', asunto: 'Información de matrículas',
+  mensaje: 'Buenas tardes, quisiera saber qué documentos necesito para matricular a mi hijo en sexto grado.',
+})
 
 await conn.end()
 

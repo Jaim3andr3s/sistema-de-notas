@@ -3,6 +3,7 @@ import bcrypt from 'bcryptjs'
 import { pool, transaccion } from '../db.js'
 import { autenticar, permitir, ErrorHttp } from '../auth.js'
 import { entero, requerido } from '../validar.js'
+import { subirImagen } from '../archivos.js'
 
 const router = Router()
 router.use(autenticar, permitir('administrador'))
@@ -196,12 +197,74 @@ router.patch('/periodos/:id', async (req, res) => {
 // ---------- Anuncios ----------
 router.post('/anuncios', async (req, res) => {
   requerido(req.body, ['titulo', 'texto', 'fecha'])
-  const { titulo, texto, fecha, grado_id } = req.body
+  const { titulo, texto, fecha, grado_id, publico } = req.body
   const [r] = await pool.query(
-    'INSERT INTO anuncios (titulo, texto, fecha, grado_id, autor_id) VALUES (?, ?, ?, ?, ?)',
-    [titulo, texto, fecha, grado_id || null, req.usuario.id]
+    'INSERT INTO anuncios (titulo, texto, fecha, grado_id, publico, autor_id) VALUES (?, ?, ?, ?, ?, ?)',
+    // Solo los anuncios para toda la institución pueden mostrarse en el sitio web
+    [titulo, texto, fecha, grado_id || null, !grado_id && Boolean(publico), req.usuario.id]
   )
   res.status(201).json({ id: r.insertId })
+})
+
+// ---------- Sitio web: noticias ----------
+const CATEGORIAS = ['logros', 'eventos', 'academico', 'cultura', 'deportes', 'institucional']
+const siNo = (v) => v === true || v === 'true' || v === '1' || v === 1
+
+function leerNoticia(body) {
+  requerido(body, ['titulo', 'resumen', 'contenido', 'fecha'])
+  const categoria = body.categoria || 'institucional'
+  if (!CATEGORIAS.includes(categoria)) throw new ErrorHttp(400, 'Categoría inválida')
+  return {
+    titulo: String(body.titulo).trim(),
+    resumen: String(body.resumen).trim().slice(0, 300),
+    contenido: String(body.contenido).trim(),
+    categoria,
+    fecha: body.fecha,
+    destacada: siNo(body.destacada),
+    publicada: body.publicada === undefined ? true : siNo(body.publicada),
+  }
+}
+
+router.get('/noticias', async (req, res) => {
+  const [filas] = await pool.query(
+    'SELECT id, titulo, resumen, contenido, categoria, imagen, fecha, destacada, publicada FROM noticias ORDER BY fecha DESC, id DESC'
+  )
+  res.json(filas)
+})
+
+router.post('/noticias', subirImagen.single('imagen'), async (req, res) => {
+  const [r] = await pool.query('INSERT INTO noticias SET ?', [{ ...leerNoticia(req.body), imagen: req.file?.filename ?? null, autor_id: req.usuario.id }])
+  res.status(201).json({ id: r.insertId })
+})
+
+router.put('/noticias/:id', subirImagen.single('imagen'), async (req, res) => {
+  const datos = leerNoticia(req.body)
+  if (req.file) datos.imagen = req.file.filename
+  else if (siNo(req.body.quitar_imagen)) datos.imagen = null
+  const [r] = await pool.query('UPDATE noticias SET ? WHERE id = ?', [datos, entero(req.params.id, 'Noticia')])
+  if (!r.affectedRows) throw new ErrorHttp(404, 'Noticia no encontrada')
+  res.json({ ok: true })
+})
+
+router.delete('/noticias/:id', async (req, res) => {
+  await pool.query('DELETE FROM noticias WHERE id = ?', [entero(req.params.id, 'Noticia')])
+  res.json({ ok: true })
+})
+
+// ---------- Sitio web: mensajes de contacto ----------
+router.get('/mensajes', async (req, res) => {
+  const [filas] = await pool.query('SELECT * FROM mensajes_contacto ORDER BY leido, creado_en DESC LIMIT 200')
+  res.json(filas)
+})
+
+router.patch('/mensajes/:id', async (req, res) => {
+  await pool.query('UPDATE mensajes_contacto SET leido = ? WHERE id = ?', [Boolean(req.body.leido), entero(req.params.id, 'Mensaje')])
+  res.json({ ok: true })
+})
+
+router.delete('/mensajes/:id', async (req, res) => {
+  await pool.query('DELETE FROM mensajes_contacto WHERE id = ?', [entero(req.params.id, 'Mensaje')])
+  res.json({ ok: true })
 })
 
 router.delete('/anuncios/:id', async (req, res) => {
@@ -211,7 +274,7 @@ router.delete('/anuncios/:id', async (req, res) => {
 
 router.get('/anuncios', async (req, res) => {
   const [filas] = await pool.query(
-    `SELECT a.id, a.titulo, a.texto, a.fecha, a.grado_id, g.nombre AS grado
+    `SELECT a.id, a.titulo, a.texto, a.fecha, a.grado_id, a.publico, g.nombre AS grado
        FROM anuncios a LEFT JOIN grados g ON g.id = a.grado_id
       ORDER BY a.fecha DESC LIMIT 100`
   )

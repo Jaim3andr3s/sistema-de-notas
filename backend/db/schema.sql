@@ -3,6 +3,8 @@
 
 SET NAMES utf8mb4;
 
+DROP TABLE IF EXISTS mensajes_contacto;
+DROP TABLE IF EXISTS noticias;
 DROP TABLE IF EXISTS observaciones;
 DROP TABLE IF EXISTS entregas;
 DROP TABLE IF EXISTS actividades;
@@ -153,6 +155,7 @@ CREATE TABLE anuncios (
   texto      TEXT NOT NULL,
   fecha      DATE NOT NULL,
   grado_id   INT UNSIGNED NULL,
+  publico    BOOLEAN NOT NULL DEFAULT FALSE,   -- también aparece en el sitio web
   autor_id   INT UNSIGNED NULL,
   creado_en  TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   CONSTRAINT fk_anuncios_grado FOREIGN KEY (grado_id) REFERENCES grados (id) ON DELETE CASCADE,
@@ -218,4 +221,34 @@ CREATE TABLE observaciones (
   INDEX idx_observaciones_matricula (matricula_id, fecha),
   CONSTRAINT fk_observaciones_matricula FOREIGN KEY (matricula_id) REFERENCES matriculas (id) ON DELETE CASCADE,
   CONSTRAINT fk_observaciones_autor     FOREIGN KEY (autor_id)     REFERENCES usuarios (id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ---------- Sitio web público ----------
+
+CREATE TABLE noticias (
+  id          INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  titulo      VARCHAR(180) NOT NULL,
+  resumen     VARCHAR(300) NOT NULL,
+  contenido   TEXT NOT NULL,
+  categoria   ENUM('logros', 'eventos', 'academico', 'cultura', 'deportes', 'institucional') NOT NULL DEFAULT 'institucional',
+  imagen      VARCHAR(100) NULL,
+  fecha       DATE NOT NULL,
+  destacada   BOOLEAN NOT NULL DEFAULT FALSE,
+  publicada   BOOLEAN NOT NULL DEFAULT TRUE,
+  autor_id    INT UNSIGNED NULL,
+  creado_en   TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  INDEX idx_noticias_fecha (publicada, fecha),
+  CONSTRAINT fk_noticias_autor FOREIGN KEY (autor_id) REFERENCES usuarios (id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Mensajes del formulario de contacto del sitio
+CREATE TABLE mensajes_contacto (
+  id         INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  nombre     VARCHAR(120) NOT NULL,
+  correo     VARCHAR(120) NULL,
+  telefono   VARCHAR(30)  NULL,
+  asunto     VARCHAR(150) NOT NULL,
+  mensaje    TEXT NOT NULL,
+  leido      BOOLEAN NOT NULL DEFAULT FALSE,
+  creado_en  TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
