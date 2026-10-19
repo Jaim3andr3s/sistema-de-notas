@@ -1,27 +1,45 @@
 import { useState } from 'react'
+import { api, guardarToken } from './api.js'
 
-const ROLES = ['Estudiante', 'Docente', 'Administrador']
+const ROLES = [
+  { id: 'estudiante', nombre: 'Estudiante' },
+  { id: 'docente', nombre: 'Docente' },
+  { id: 'administrador', nombre: 'Administrador' },
+]
+
+// Cuentas demo creadas por `npm run db:setup` en el backend
+const DEMO = { estudiante: '1111111111', docente: '2222222222', administrador: '3333333333' }
+const CLAVE_DEMO = 'demo1234'
 
 export default function Login({ onLogin }) {
-  const [rol, setRol] = useState(ROLES[0])
+  const [rol, setRol] = useState(ROLES[0].id)
   const [documento, setDocumento] = useState('')
   const [clave, setClave] = useState('')
   const [verClave, setVerClave] = useState(false)
   const [error, setError] = useState('')
   const [cargando, setCargando] = useState(false)
 
-  async function handleSubmit(e) {
-    e.preventDefault()
+  async function entrar(doc, pass) {
     setError('')
-    if (!documento.trim() || !clave) {
+    if (!doc.trim() || !pass) {
       setError('Ingresa tu documento y contraseña.')
       return
     }
     setCargando(true)
-    // TODO: reemplazar por la llamada real al backend de autenticación
-    await new Promise((r) => setTimeout(r, 800))
-    setCargando(false)
-    onLogin({ documento: documento.trim(), rol })
+    try {
+      const { token, usuario } = await api('/auth/login', { method: 'POST', body: { documento: doc.trim(), clave: pass, rol } })
+      guardarToken(token)
+      onLogin(usuario)
+    } catch (err) {
+      setError(err.message)
+      setCargando(false)
+    }
+  }
+
+  function usarDemo() {
+    setDocumento(DEMO[rol])
+    setClave(CLAVE_DEMO)
+    entrar(DEMO[rol], CLAVE_DEMO)
   }
 
   return (
@@ -32,7 +50,7 @@ export default function Login({ onLogin }) {
         <span className="franja roja" />
       </div>
 
-      <form className="login-card" onSubmit={handleSubmit} noValidate>
+      <form className="login-card" onSubmit={(e) => { e.preventDefault(); entrar(documento, clave) }} noValidate>
         <img src="/escudo.jpeg" alt="Escudo Institución Educativa Máximo Mercado" className="escudo" />
 
         <h1 className="titulo">Sistema de Notas</h1>
@@ -42,14 +60,14 @@ export default function Login({ onLogin }) {
         <div className="roles" role="tablist">
           {ROLES.map((r) => (
             <button
-              key={r}
+              key={r.id}
               type="button"
               role="tab"
-              aria-selected={rol === r}
-              className={rol === r ? 'rol activo' : 'rol'}
-              onClick={() => setRol(r)}
+              aria-selected={rol === r.id}
+              className={rol === r.id ? 'rol activo' : 'rol'}
+              onClick={() => setRol(r.id)}
             >
-              {r}
+              {r.nombre}
             </button>
           ))}
         </div>
@@ -93,9 +111,11 @@ export default function Login({ onLogin }) {
           {cargando ? 'Ingresando…' : 'Ingresar'}
         </button>
 
-        <a href="#" className="olvido" onClick={(e) => e.preventDefault()}>
-          ¿Olvidaste tu contraseña?
-        </a>
+        <button type="button" className="btn-demo" onClick={usarDemo} disabled={cargando}>
+          Entrar con cuenta demo de {ROLES.find((r) => r.id === rol).nombre}
+        </button>
+
+        <p className="olvido-texto">¿Olvidaste tu contraseña? Comunícate con coordinación académica.</p>
       </form>
 
       <footer className="pie">© {new Date().getFullYear()} IEMM · Sistema de Notas</footer>
