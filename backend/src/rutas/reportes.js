@@ -3,7 +3,7 @@ import { Router } from 'express'
 import { pool } from '../db.js'
 import { autenticar, permitir, ErrorHttp } from '../auth.js'
 import { gradoPermitido, matriculaPermitida } from '../acceso.js'
-import { consolidado, boletin } from '../academico.js'
+import { consolidado, boletin, semaforoGrado } from '../academico.js'
 import { entero, requerido } from '../validar.js'
 import { notificar, familias } from '../notificaciones.js'
 
@@ -47,6 +47,11 @@ router.get('/grados/:id/consolidado', async (req, res) => {
   const grado = await gradoPermitido(req.usuario, entero(req.params.id, 'Grado'))
   const periodo = req.query.periodo ? entero(req.query.periodo, 'Periodo') : null
   res.json(await consolidado(grado.id, periodo))
+})
+
+router.get('/grados/:id/semaforo', async (req, res) => {
+  const grado = await gradoPermitido(req.usuario, entero(req.params.id, 'Grado'))
+  res.json(await semaforoGrado(grado.id))
 })
 
 router.get('/boletin/:matricula', async (req, res) => {

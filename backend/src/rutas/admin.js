@@ -5,6 +5,7 @@ import { autenticar, permitir, ErrorHttp } from '../auth.js'
 import { entero, requerido } from '../validar.js'
 import { subirImagen } from '../archivos.js'
 import { notificar, familiasDeGrado } from '../notificaciones.js'
+import { semaforoGrado } from '../academico.js'
 
 const router = Router()
 router.use(autenticar, permitir('administrador'))
@@ -513,6 +514,23 @@ router.patch('/inasistencias/:id', async (req, res) => {
     Boolean(req.body.justificada), req.body.observacion?.trim() || null, entero(req.params.id, 'Inasistencia'),
   ])
   res.json({ ok: true })
+})
+
+// ---------- Semáforo de toda la institución ----------
+router.get('/semaforo', async (req, res) => {
+  const [grados] = await pool.query('SELECT id FROM grados WHERE anio = (SELECT MAX(anio) FROM grados) ORDER BY nivel, nombre')
+  const resultado = []
+  for (const g of grados) {
+    const s = await semaforoGrado(g.id)
+    resultado.push({
+      grado: s.grado,
+      conteo: Object.fromEntries(['verde', 'amarillo', 'rojo'].map((c) => [c, s.estudiantes.filter((e) => e.color === c).length])),
+      en_rojo: s.estudiantes.filter((e) => e.color === 'rojo').map(({ matricula_id, nombre, rojas, asignaturas }) => ({
+        matricula_id, nombre, rojas, motivos: asignaturas.filter((a) => a.color === 'rojo').map((a) => `${a.asignatura}: ${a.motivos.join('; ')}`),
+      })),
+    })
+  }
+  res.json(resultado)
 })
 
 // ---------- Estadísticas para el inicio ----------

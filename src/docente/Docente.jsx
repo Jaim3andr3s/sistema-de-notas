@@ -7,6 +7,8 @@ import Perfil from '../compartido/Perfil.jsx'
 import ActividadesDocente from './Actividades.jsx'
 import Clases from '../compartido/Clases.jsx'
 import Mensajes from '../compartido/Mensajes.jsx'
+import { SemaforoDocente } from '../compartido/Semaforo.jsx'
+import Calendario from '../compartido/Calendario.jsx'
 import { api } from '../api.js'
 import { hoy, promedio } from '../util.js'
 
@@ -16,6 +18,8 @@ const MENU = [
   { id: 'actividades', nombre: 'Actividades', icono: 'assignment' },
   { id: 'clases', nombre: 'Mis clases', icono: 'forum' },
   { id: 'mensajes', nombre: 'Mensajes', icono: 'chat' },
+  { id: 'semaforo', nombre: 'Semáforo', icono: 'traffic' },
+  { id: 'calendario', nombre: 'Calendario', icono: 'event' },
   { id: 'asistencia', nombre: 'Asistencia', icono: 'how_to_reg' },
   { id: 'observador', nombre: 'Observador', icono: 'fact_check' },
   { id: 'consolidados', nombre: 'Consolidados', icono: 'table_chart' },
@@ -34,6 +38,8 @@ export default function Docente({ usuario, onSalir }) {
   if (vista === 'actividades') contenido = <ActividadesDocente seleccion={seleccion} Selector={SelectorCargaPeriodo} />
   if (vista === 'clases') contenido = <Clases usuario={usuario} />
   if (vista === 'mensajes') contenido = <Mensajes usuario={usuario} />
+  if (vista === 'semaforo') contenido = <SemaforoDocente />
+  if (vista === 'calendario') contenido = <Calendario />
   if (vista === 'asistencia') contenido = <Asistencia seleccion={seleccion} />
   if (vista === 'observador') contenido = <Observador usuario={usuario} />
   if (vista === 'consolidados') contenido = <Consolidado />

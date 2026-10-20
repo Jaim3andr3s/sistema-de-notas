@@ -7,12 +7,16 @@ import Perfil from '../compartido/Perfil.jsx'
 import SitioWeb from './SitioWeb.jsx'
 import Mensajes from '../compartido/Mensajes.jsx'
 import Docentes from './Docentes.jsx'
+import { SemaforoInstitucional } from '../compartido/Semaforo.jsx'
+import Calendario from '../compartido/Calendario.jsx'
 import { api } from '../api.js'
 import { ROLES, fecha, hoy } from '../util.js'
 
 const MENU = [
   { id: 'inicio', nombre: 'Inicio', icono: 'dashboard' },
+  { id: 'semaforo', nombre: 'Alerta temprana', icono: 'traffic' },
   { id: 'docentes', nombre: 'Equipo docente', icono: 'badge' },
+  { id: 'calendario', nombre: 'Calendario', icono: 'event' },
   { id: 'usuarios', nombre: 'Usuarios', icono: 'group' },
   { id: 'academico', nombre: 'Grados y asignaturas', icono: 'school' },
   { id: 'periodos', nombre: 'Periodos', icono: 'date_range' },
@@ -29,7 +33,9 @@ export default function Admin({ usuario, onSalir }) {
   const [vista, setVista] = useState('inicio')
   const VISTAS = {
     inicio: <Inicio ir={setVista} />,
+    semaforo: <SemaforoInstitucional />,
     docentes: <Docentes />,
+    calendario: <Calendario />,
     usuarios: <Usuarios />,
     academico: <Academico />,
     periodos: <Periodos />,

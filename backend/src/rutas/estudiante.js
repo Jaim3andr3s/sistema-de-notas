@@ -2,7 +2,7 @@ import { Router } from 'express'
 import { pool } from '../db.js'
 import { autenticar, permitir, ErrorHttp } from '../auth.js'
 import { matriculaActual } from '../acceso.js'
-import { boletin, ponderado } from '../academico.js'
+import { boletin, ponderado, semaforoGrado } from '../academico.js'
 import { subir } from '../archivos.js'
 import { entero } from '../validar.js'
 
@@ -198,6 +198,15 @@ router.post('/actividades/:id/entrega', subir.single('archivo'), async (req, res
     ]
   )
   res.status(201).json({ ok: true, nota })
+})
+
+// ---------- Semáforo ----------
+router.get('/semaforo', async (req, res) => {
+  const m = await matriculaActual(req.estudianteUid)
+  const { periodo, umbrales, estudiantes } = await semaforoGrado(m.grado_id)
+  const propio = estudiantes.find((e) => e.matricula_id === m.id)
+  if (!propio) throw new ErrorHttp(404, 'No tienes una matrícula activa')
+  res.json({ periodo, umbrales, ...propio })
 })
 
 // ---------- Observador ----------

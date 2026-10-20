@@ -6,13 +6,16 @@ import { VISTAS } from '../estudiante/Estudiante.jsx'
 import { VistaEstudiante } from '../estudiante/contexto.js'
 import Mensajes from '../compartido/Mensajes.jsx'
 import Perfil from '../compartido/Perfil.jsx'
+import Calendario from '../compartido/Calendario.jsx'
 import { nombreCompleto } from '../util.js'
 
 const MENU = [
   { id: 'inicio', nombre: 'Inicio', icono: 'home' },
   { id: 'notas', nombre: 'Notas', icono: 'grading' },
+  { id: 'semaforo', nombre: 'Semáforo', icono: 'traffic' },
   { id: 'actividades', nombre: 'Tareas y actividades', icono: 'assignment' },
   { id: 'mensajes', nombre: 'Mensajes', icono: 'chat' },
+  { id: 'calendario', nombre: 'Calendario', icono: 'event' },
   { id: 'horario', nombre: 'Horario', icono: 'calendar_month' },
   { id: 'asistencia', nombre: 'Asistencia', icono: 'event_available' },
   { id: 'observador', nombre: 'Observador', icono: 'fact_check' },
@@ -20,8 +23,8 @@ const MENU = [
   { id: 'perfil', nombre: 'Mi perfil', icono: 'person' },
 ]
 
-// Mensajes y perfil son del acudiente; lo demás es del hijo elegido
-const PROPIAS = { mensajes: Mensajes, perfil: Perfil }
+// Mensajes, calendario (de todos sus hijos) y perfil son del acudiente; lo demás es del hijo elegido
+const PROPIAS = { mensajes: Mensajes, calendario: Calendario, perfil: Perfil }
 
 export default function Acudiente({ usuario, onSalir }) {
   const [vista, setVista] = useState('inicio')
