@@ -107,16 +107,20 @@ body {
 
 .roles {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(2, 1fr);
   gap: 4px;
   padding: 4px;
   background: var(--azul-suave);
   border-radius: 10px;
 }
 .rol {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
   border: 0;
   background: transparent;
-  padding: 8px 4px;
+  padding: 10px 4px;
   border-radius: 8px;
   font: inherit;
   font-size: 0.85rem;
@@ -215,6 +219,43 @@ body {
 }
 .pie a { color: var(--amarillo); font-weight: 700; text-decoration: none; }
 .pie span { opacity: 0.85; }
+
+.rol .material-icons { font-size: 19px; }
+
+/* Acceso del administrador: discreto, al pie de la tarjeta */
+.enlace-admin {
+  align-self: center;
+  margin-top: -4px;
+  padding: 2px 6px;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-size: 0.72rem;
+  color: #a3aab8;
+  cursor: pointer;
+}
+.enlace-admin:hover { color: var(--gris); text-decoration: underline; }
+.acceso-admin {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--amarillo-suave);
+  color: #7a5d00;
+  font-size: 0.88rem;
+}
+.acceso-admin .material-icons { font-size: 20px; }
+.acceso-admin strong { flex: 1; }
+.acceso-admin button {
+  border: 0;
+  background: none;
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--azul);
+  cursor: pointer;
+}
 
 @media (max-width: 420px) {
   .login-card { padding: 28px 18px 22px; }
