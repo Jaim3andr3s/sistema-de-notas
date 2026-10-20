@@ -375,3 +375,5 @@
   .tarjeta { padding: 14px; }
   .tarjeta strong { font-size: 1.6rem; }
 }
+.menu-item.instalar, .menu-item.instalar .material-icons { color: var(--azul); }
+.menu-item.instalar { background: var(--azul-suave); margin-bottom: 4px; }

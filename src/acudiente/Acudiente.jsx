@@ -21,6 +21,7 @@ const MENU = [
   { id: 'asistencia', nombre: 'Asistencia', icono: 'event_available' },
   { id: 'observador', nombre: 'Observador', icono: 'fact_check' },
   { id: 'boletines', nombre: 'Boletines', icono: 'description' },
+  { id: 'carnet', nombre: 'Carnet y constancias', icono: 'badge' },
   { id: 'perfil', nombre: 'Mi perfil', icono: 'person' },
 ]
 

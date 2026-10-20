@@ -39,6 +39,7 @@ export default function Layout({ menu, vista, onVista, usuario, onSalir, childre
             </button>
           ))}
         </nav>
+        <BotonInstalar />
         <button className="menu-item salir" onClick={onSalir}>
           <Icono nombre="logout" />
           Cerrar sesión
@@ -83,4 +84,24 @@ function useNoLeidos(vista) {
     }
   }, [consultar])
   return total
+}
+
+// Aparece solo cuando el navegador permite instalar la plataforma como app (Android, Chrome, Edge)
+function BotonInstalar() {
+  const [aviso, setAviso] = useState(null)
+  useEffect(() => {
+    const guardar = (e) => {
+      e.preventDefault()
+      setAviso(e)
+    }
+    window.addEventListener('beforeinstallprompt', guardar)
+    return () => window.removeEventListener('beforeinstallprompt', guardar)
+  }, [])
+  if (!aviso) return null
+  return (
+    <button className="menu-item instalar" onClick={async () => { aviso.prompt(); await aviso.userChoice; setAviso(null) }}>
+      <Icono nombre="install_mobile" />
+      Instalar la app
+    </button>
+  )
 }

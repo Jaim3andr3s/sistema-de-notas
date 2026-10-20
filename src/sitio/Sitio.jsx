@@ -19,10 +19,11 @@ const imagen = (n) => `/api/publico/imagenes/${n}`
 
 export default function Sitio({ ruta }) {
   const noticiaId = ruta.match(/^\/noticias\/(\d+)/)?.[1]
+  const codigo = ruta.match(/^\/verificar\/([\w-]+)/)?.[1]
   return (
     <div className="sitio">
       <Encabezado />
-      {noticiaId ? <DetalleNoticia id={noticiaId} /> : <Portada />}
+      {codigo ? <Verificacion codigo={codigo} /> : noticiaId ? <DetalleNoticia id={noticiaId} /> : <Portada />}
       <Pie />
     </div>
   )
@@ -466,6 +467,42 @@ function DetalleNoticia({ id }) {
           ))}
           <a href="/plataforma" className="s-btn s-btn-azul"><Icono nombre="login" /> Plataforma académica</a>
         </aside>
+      </div>
+    </main>
+  )
+}
+
+// Lo que ve quien escanea el QR del carnet o de una constancia
+function Verificacion({ codigo }) {
+  const consulta = useApi(`/publico/verificar/${encodeURIComponent(codigo)}`)
+  const v = consulta.datos
+  useEffect(() => {
+    document.title = 'Verificación de estudiante · IEMM'
+  }, [])
+  return (
+    <main className="s-seccion s-fondo-suave">
+      <div className="s-contenedor s-verificacion">
+        {consulta.cargando && <p className="s-vacio">Verificando…</p>}
+        {consulta.error && (
+          <article className="invalida">
+            <Icono nombre="gpp_bad" />
+            <h1>Código no válido</h1>
+            <p>Este carnet o constancia no corresponde a ningún estudiante de la institución. Si crees que es un error, comunícate con la secretaría.</p>
+          </article>
+        )}
+        {v && (
+          <article className={v.estado === 'activa' ? 'valida' : 'invalida'}>
+            <Icono nombre={v.estado === 'activa' ? 'verified' : 'gpp_maybe'} />
+            <h1>{v.estado === 'activa' ? 'Estudiante con matrícula activa' : `Matrícula ${v.estado}`}</h1>
+            <dl>
+              <div><dt>Nombre</dt><dd>{v.nombres} {v.apellidos}</dd></div>
+              <div><dt>Documento</dt><dd>{v.documento}</dd></div>
+              <div><dt>Grado</dt><dd>{v.grado} · Jornada {v.jornada}</dd></div>
+              <div><dt>Año lectivo</dt><dd>{v.anio}</dd></div>
+            </dl>
+            <small>Verificado en línea por la {COLEGIO.nombre} el {new Date().toLocaleDateString('es-CO', { day: 'numeric', month: 'long', year: 'numeric' })}.</small>
+          </article>
+        )}
       </div>
     </main>
   )

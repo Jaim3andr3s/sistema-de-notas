@@ -5,6 +5,7 @@ import { matriculaActual } from '../acceso.js'
 import { boletin, ponderado, semaforoGrado } from '../academico.js'
 import { subir } from '../archivos.js'
 import { entero } from '../validar.js'
+import { codigoMatricula } from '../verificacion.js'
 
 // Las consultas trabajan sobre req.estudianteUid: el propio estudiante, o el hijo que elige un acudiente
 export const vistasEstudiante = Router({ mergeParams: true })
@@ -198,6 +199,13 @@ router.post('/actividades/:id/entrega', subir.single('archivo'), async (req, res
     ]
   )
   res.status(201).json({ ok: true, nota })
+})
+
+// ---------- Carnet y constancia de estudio ----------
+router.get('/carnet', async (req, res) => {
+  const m = await matriculaActual(req.estudianteUid)
+  const [[u]] = await pool.query('SELECT documento, nombres, apellidos FROM usuarios WHERE id = ?', [req.estudianteUid])
+  res.json({ ...u, grado: m.grado, jornada: m.jornada, anio: m.anio, estado: m.estado, director: m.director, codigo: codigoMatricula(m.id) })
 })
 
 // ---------- Planes de mejoramiento ----------

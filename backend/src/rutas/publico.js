@@ -4,6 +4,7 @@ import { pool } from '../db.js'
 import { ErrorHttp } from '../auth.js'
 import { CARPETA_ARCHIVOS } from '../archivos.js'
 import { entero, requerido } from '../validar.js'
+import { matriculaDeCodigo } from '../verificacion.js'
 
 const router = Router()
 
@@ -45,6 +46,21 @@ router.get('/eventos', async (req, res) => {
       ORDER BY fecha LIMIT 6`
   )
   res.json(filas)
+})
+
+// Verificación pública del carnet o de una constancia (lo que muestra el QR)
+router.get('/verificar/:codigo', async (req, res) => {
+  const id = matriculaDeCodigo(req.params.codigo)
+  if (!id) throw new ErrorHttp(404, 'Código de verificación inválido')
+  const [[m]] = await pool.query(
+    `SELECT u.nombres, u.apellidos, u.documento, g.nombre AS grado, g.jornada, m.anio, m.estado
+       FROM matriculas m JOIN estudiantes e ON e.id = m.estudiante_id JOIN usuarios u ON u.id = e.usuario_id JOIN grados g ON g.id = m.grado_id
+      WHERE m.id = ?`,
+    [id]
+  )
+  if (!m) throw new ErrorHttp(404, 'Código de verificación inválido')
+  // El documento se muestra parcialmente para proteger los datos del estudiante
+  res.json({ ...m, documento: `••••${m.documento.slice(-4)}` })
 })
 
 // Publicaciones de Facebook que el sitio muestra insertadas

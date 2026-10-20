@@ -11,6 +11,7 @@ import Mensajes from '../compartido/Mensajes.jsx'
 import SemaforoPropio from '../compartido/Semaforo.jsx'
 import Calendario from '../compartido/Calendario.jsx'
 import Mejoramiento from './Mejoramiento.jsx'
+import Carnet from './Carnet.jsx'
 import { VistaEstudiante, useVistaEstudiante } from './contexto.js'
 import { api } from '../api.js'
 import { promedio, fecha, fechaHora, vencida, TIPOS_ACTIVIDAD } from '../util.js'
@@ -28,11 +29,12 @@ const MENU = [
   { id: 'asistencia', nombre: 'Asistencia', icono: 'event_available' },
   { id: 'observador', nombre: 'Observador', icono: 'fact_check' },
   { id: 'boletines', nombre: 'Boletines', icono: 'description' },
+  { id: 'carnet', nombre: 'Carnet y constancias', icono: 'badge' },
   { id: 'perfil', nombre: 'Mi perfil', icono: 'person' },
 ]
 
 // También las usa el panel del acudiente
-export const VISTAS = { inicio: Inicio, notas: Notas, semaforo: SemaforoPropio, calendario: Calendario, mejoramiento: Mejoramiento, actividades: Actividades, clases: Clases, mensajes: Mensajes, horario: Horario, asistencia: Asistencia, observador: Observador, boletines: Boletines, perfil: MiPerfil }
+export const VISTAS = { inicio: Inicio, notas: Notas, semaforo: SemaforoPropio, calendario: Calendario, mejoramiento: Mejoramiento, carnet: Carnet, actividades: Actividades, clases: Clases, mensajes: Mensajes, horario: Horario, asistencia: Asistencia, observador: Observador, boletines: Boletines, perfil: MiPerfil }
 
 export default function Estudiante({ usuario, onSalir }) {
   const [vista, setVista] = useState('inicio')
