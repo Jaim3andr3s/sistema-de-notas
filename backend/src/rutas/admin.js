@@ -3,7 +3,7 @@ import bcrypt from 'bcryptjs'
 import { pool, transaccion } from '../db.js'
 import { autenticar, permitir, ErrorHttp } from '../auth.js'
 import { entero, requerido } from '../validar.js'
-import { subirImagen } from '../archivos.js'
+import { subir, subirImagen } from '../archivos.js'
 import { notificar, familiasDeGrado } from '../notificaciones.js'
 import { semaforoGrado } from '../academico.js'
 
@@ -477,6 +477,96 @@ router.post('/facebook', async (req, res) => {
 
 router.delete('/facebook/:id', async (req, res) => {
   await pool.query('DELETE FROM publicaciones_facebook WHERE id = ?', [entero(req.params.id, 'Publicación')])
+  res.json({ ok: true })
+})
+
+// ---------- Transparencia: documentos ----------
+const CATEGORIAS_DOC = ['institucional', 'planeacion', 'presupuesto', 'normatividad', 'calendario', 'informes']
+
+router.get('/documentos', async (req, res) => {
+  const [filas] = await pool.query('SELECT id, titulo, descripcion, categoria, archivo, archivo_nombre, fecha, publicado FROM documentos ORDER BY fecha DESC, id DESC')
+  res.json(filas)
+})
+
+router.post('/documentos', subir.single('archivo'), async (req, res) => {
+  requerido(req.body, ['titulo', 'categoria', 'fecha'])
+  if (!req.file) throw new ErrorHttp(400, 'Adjunta el documento (PDF de preferencia)')
+  if (!CATEGORIAS_DOC.includes(req.body.categoria)) throw new ErrorHttp(400, 'Categoría inválida')
+  const [r] = await pool.query('INSERT INTO documentos SET ?', [{
+    titulo: String(req.body.titulo).trim().slice(0, 200),
+    descripcion: req.body.descripcion?.trim().slice(0, 300) || null,
+    categoria: req.body.categoria,
+    fecha: req.body.fecha,
+    archivo: req.file.filename,
+    archivo_nombre: req.file.originalname,
+    autor_id: req.usuario.id,
+  }])
+  res.status(201).json({ id: r.insertId })
+})
+
+router.patch('/documentos/:id', async (req, res) => {
+  await pool.query('UPDATE documentos SET publicado = ? WHERE id = ?', [Boolean(req.body.publicado), entero(req.params.id, 'Documento')])
+  res.json({ ok: true })
+})
+
+router.delete('/documentos/:id', async (req, res) => {
+  await pool.query('DELETE FROM documentos WHERE id = ?', [entero(req.params.id, 'Documento')])
+  res.json({ ok: true })
+})
+
+// ---------- Admisiones: preinscripciones ----------
+router.get('/preinscripciones', async (req, res) => {
+  const [filas] = await pool.query('SELECT * FROM preinscripciones ORDER BY (estado = \'nueva\') DESC, creado_en DESC LIMIT 300')
+  res.json(filas)
+})
+
+router.patch('/preinscripciones/:id', async (req, res) => {
+  if (!['nueva', 'contactada', 'admitida', 'no_admitida'].includes(req.body.estado)) throw new ErrorHttp(400, 'Estado inválido')
+  await pool.query('UPDATE preinscripciones SET estado = ? WHERE id = ?', [req.body.estado, entero(req.params.id, 'Preinscripción')])
+  res.json({ ok: true })
+})
+
+router.delete('/preinscripciones/:id', async (req, res) => {
+  await pool.query('DELETE FROM preinscripciones WHERE id = ?', [entero(req.params.id, 'Preinscripción')])
+  res.json({ ok: true })
+})
+
+// ---------- Galería de fotos ----------
+router.get('/galerias', async (req, res) => {
+  const [galerias] = await pool.query('SELECT id, titulo, descripcion, fecha, publicada FROM galerias ORDER BY fecha DESC')
+  const [fotos] = await pool.query('SELECT id, galeria_id, archivo FROM galeria_fotos ORDER BY orden, id')
+  res.json(galerias.map((g) => ({ ...g, fotos: fotos.filter((f) => f.galeria_id === g.id) })))
+})
+
+router.post('/galerias', async (req, res) => {
+  requerido(req.body, ['titulo', 'fecha'])
+  const [r] = await pool.query('INSERT INTO galerias (titulo, descripcion, fecha) VALUES (?, ?, ?)', [
+    String(req.body.titulo).trim().slice(0, 150), req.body.descripcion?.trim().slice(0, 300) || null, req.body.fecha,
+  ])
+  res.status(201).json({ id: r.insertId })
+})
+
+router.patch('/galerias/:id', async (req, res) => {
+  await pool.query('UPDATE galerias SET publicada = ? WHERE id = ?', [Boolean(req.body.publicada), entero(req.params.id, 'Álbum')])
+  res.json({ ok: true })
+})
+
+router.delete('/galerias/:id', async (req, res) => {
+  await pool.query('DELETE FROM galerias WHERE id = ?', [entero(req.params.id, 'Álbum')])
+  res.json({ ok: true })
+})
+
+// Sube hasta 30 fotos a la vez (campo "fotos")
+router.post('/galerias/:id/fotos', subirImagen.array('fotos', 30), async (req, res) => {
+  const id = entero(req.params.id, 'Álbum')
+  if (!req.files?.length) throw new ErrorHttp(400, 'Elige al menos una foto')
+  const [[{ siguiente }]] = await pool.query('SELECT COALESCE(MAX(orden), 0) + 1 AS siguiente FROM galeria_fotos WHERE galeria_id = ?', [id])
+  await pool.query('INSERT INTO galeria_fotos (galeria_id, archivo, orden) VALUES ?', [req.files.map((f, i) => [id, f.filename, siguiente + i])])
+  res.status(201).json({ subidas: req.files.length })
+})
+
+router.delete('/fotos/:id', async (req, res) => {
+  await pool.query('DELETE FROM galeria_fotos WHERE id = ?', [entero(req.params.id, 'Foto')])
   res.json({ ok: true })
 })
 

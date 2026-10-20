@@ -264,6 +264,11 @@ const NOTICIAS = [
 for (const [categoria, fecha, destacada, titulo, resumen, contenido] of NOTICIAS) {
   await insertar('noticias', { categoria, fecha, destacada, titulo, resumen, contenido, autor_id: adminId })
 }
+await insertar('preinscripciones', {
+  estudiante_nombre: 'Aspirante de ejemplo', grado_aspira: '6°', sede: 'Sede Principal', colegio_procedencia: 'Escuela de ejemplo',
+  acudiente_nombre: 'Acudiente de ejemplo', acudiente_telefono: '3000000000', acepta_datos_en: new Date(),
+  observaciones: 'Registro de prueba creado por npm run db:setup.',
+})
 await insertar('mensajes_contacto', {
   nombre: 'Madre de familia (ejemplo)', telefono: '3000000000', asunto: 'Información de matrículas',
   mensaje: 'Buenas tardes, quisiera saber qué documentos necesito para matricular a mi hijo en sexto grado.',

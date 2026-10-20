@@ -603,3 +603,17 @@ i.periodo { background: var(--rojo); }
 .constancia-qr small { font-size: 0.7rem; color: var(--gris); word-break: break-all; line-height: 1.3; }
 @media (max-width: 900px) { .carnet-pagina { grid-template-columns: 1fr; } .constancia { padding: 22px; } .constancia-pie { flex-direction: column; align-items: flex-start; } }
 @media print { .constancia { border: 0; margin: 0; padding: 0; } }
+
+/* ---------- Administración del sitio: galería ---------- */
+.lista-albumes { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 14px; }
+.lista-albumes > li { padding: 14px; border: 1px solid var(--borde); border-radius: 12px; }
+.lista-albumes > li.inactivo { opacity: 0.6; }
+.lista-albumes-cabecera { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
+.lista-albumes-cabecera small { display: block; color: var(--gris); font-size: 0.8rem; }
+.lista-albumes label.btn-secundario { cursor: pointer; }
+.miniaturas { display: grid; grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); gap: 6px; margin-top: 12px; }
+.miniaturas figure { position: relative; margin: 0; }
+.miniaturas img { display: block; width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 8px; }
+.miniaturas button { position: absolute; top: 4px; right: 4px; width: 22px; height: 22px; display: grid; place-items: center; padding: 0; border: 0; border-radius: 50%; background: rgba(0, 0, 0, 0.55); color: var(--blanco); cursor: pointer; }
+.miniaturas button .material-icons { font-size: 14px; }
+.tabla select.chip { border: 0; padding: 4px 8px; font: inherit; font-size: 0.78rem; font-weight: 700; cursor: pointer; }
