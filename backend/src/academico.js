@@ -177,3 +177,96 @@ export async function boletin(matriculaId, periodoId) {
     observaciones,
   }
 }
+
+// ---------- Semáforo académico (alerta temprana) ----------
+// Umbrales: se pueden ajustar según el SIEE del colegio
+export const UMBRALES = { notaRoja: 3.0, notaAmarilla: 3.5, fallasRojas: 8, fallasAmarillas: 4, vencidasRojas: 3 }
+const NIVEL = { verde: 0, amarillo: 1, rojo: 2 }
+const peor = (colores) => colores.reduce((a, c) => (NIVEL[c] > NIVEL[a] ? c : a), 'verde')
+
+function colorAsignatura(a) {
+  const motivos = []
+  let color = 'verde'
+  const marcar = (c, motivo) => {
+    motivos.push(motivo)
+    color = peor([color, c])
+  }
+  // [nota, mensaje si está en rojo, mensaje si está en amarillo]
+  for (const [valor, enRojo, enAmarillo] of [
+    [a.parcial, 'Va perdiendo el periodo en curso', 'Va justo en el periodo en curso'],
+    [a.nota_reciente, 'Perdió el último periodo', 'Pasó el último periodo con lo mínimo'],
+    [a.acumulado, 'Acumulado del año en Bajo', 'Acumulado del año apenas en Básico'],
+  ]) {
+    if (valor == null) continue
+    if (valor < UMBRALES.notaRoja) marcar('rojo', `${enRojo} (${valor.toFixed(1)})`)
+    else if (valor < UMBRALES.notaAmarilla) marcar('amarillo', `${enAmarillo} (${valor.toFixed(1)})`)
+  }
+  if (a.fallas >= UMBRALES.fallasRojas) marcar('rojo', `${a.fallas} fallas sin justificar`)
+  else if (a.fallas >= UMBRALES.fallasAmarillas) marcar('amarillo', `${a.fallas} fallas sin justificar`)
+  if (a.vencidas >= UMBRALES.vencidasRojas) marcar('rojo', `${a.vencidas} tareas vencidas sin entregar`)
+  else if (a.vencidas > 0) marcar('amarillo', `${a.vencidas} ${a.vencidas === 1 ? 'tarea vencida' : 'tareas vencidas'} sin entregar`)
+  return { color, motivos }
+}
+
+// Semáforo de todos los estudiantes activos de un grado
+export async function semaforoGrado(gradoId) {
+  const { grado, periodos, asignaturas } = await datosGrado(gradoId)
+  const abierto = periodos.find((p) => !p.cerrado) ?? null
+
+  const [estudiantes] = await pool.query(
+    `SELECT m.id AS matricula_id, e.usuario_id, u.documento, CONCAT(u.apellidos, ' ', u.nombres) AS nombre
+       FROM matriculas m JOIN estudiantes e ON e.id = m.estudiante_id JOIN usuarios u ON u.id = e.usuario_id
+      WHERE m.grado_id = ? AND m.estado = 'activa' ORDER BY u.apellidos, u.nombres`,
+    [gradoId]
+  )
+  const [notas] = await pool.query(
+    'SELECT n.matricula_id, n.carga_id, n.periodo_id, n.nota FROM notas n JOIN matriculas m ON m.id = n.matricula_id WHERE m.grado_id = ?',
+    [gradoId]
+  )
+  const [fallas] = await pool.query(
+    `SELECT i.matricula_id, i.carga_id, COUNT(*) AS total FROM inasistencias i JOIN matriculas m ON m.id = i.matricula_id
+      WHERE m.grado_id = ? AND i.tipo = 'falla' AND NOT i.justificada GROUP BY i.matricula_id, i.carga_id`,
+    [gradoId]
+  )
+  // Actividades del periodo en curso con sus entregas
+  const [actividades] = abierto
+    ? await pool.query(
+        `SELECT a.id, a.carga_id, a.porcentaje, a.entrega_en_linea, a.fecha_entrega < NOW() AS vencida
+           FROM actividades a JOIN cargas c ON c.id = a.carga_id WHERE c.grado_id = ? AND a.periodo_id = ?`,
+        [gradoId, abierto.id]
+      )
+    : [[]]
+  const [entregas] = actividades.length
+    ? await pool.query('SELECT actividad_id, matricula_id, entregado_en, nota FROM entregas WHERE actividad_id IN (?)', [actividades.map((a) => a.id)])
+    : [[]]
+
+  const lista = estudiantes.map((e) => {
+    const porAsignatura = asignaturas.map((c) => {
+      const suyas = periodos.map((p) => notas.find((n) => n.matricula_id === e.matricula_id && n.carga_id === c.carga_id && n.periodo_id === p.id)?.nota ?? null)
+      const ultima = [...suyas].reverse().find((n) => n != null) ?? null
+      const acts = actividades.filter((a) => a.carga_id === c.carga_id)
+      const entregaDe = (a) => entregas.find((x) => x.actividad_id === a.id && x.matricula_id === e.matricula_id)
+      const parcial = ponderado(acts.map((a) => ({ valor: entregaDe(a)?.nota ?? null, peso: a.porcentaje })))
+      const datos = {
+        carga_id: c.carga_id,
+        asignatura: c.asignatura,
+        docente: c.docente,
+        parcial: redondear(parcial),
+        nota_reciente: ultima,
+        acumulado: redondear(ponderado(periodos.map((p, i) => ({ valor: suyas[i], peso: p.porcentaje })))),
+        fallas: Number(fallas.find((f) => f.matricula_id === e.matricula_id && f.carga_id === c.carga_id)?.total ?? 0),
+        vencidas: acts.filter((a) => a.entrega_en_linea && a.vencida && !entregaDe(a)?.entregado_en && entregaDe(a)?.nota == null).length,
+      }
+      return { ...datos, ...colorAsignatura(datos) }
+    })
+    const color = peor(porAsignatura.map((a) => a.color))
+    return {
+      ...e,
+      color,
+      rojas: porAsignatura.filter((a) => a.color === 'rojo').length,
+      amarillas: porAsignatura.filter((a) => a.color === 'amarillo').length,
+      asignaturas: porAsignatura,
+    }
+  })
+  return { grado, periodo: abierto, umbrales: UMBRALES, estudiantes: lista }
+}

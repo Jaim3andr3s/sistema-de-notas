@@ -7,12 +7,16 @@ import Perfil from '../compartido/Perfil.jsx'
 import SitioWeb from './SitioWeb.jsx'
 import Mensajes from '../compartido/Mensajes.jsx'
 import Docentes from './Docentes.jsx'
+import { SemaforoInstitucional } from '../compartido/Semaforo.jsx'
+import Calendario from '../compartido/Calendario.jsx'
 import { api } from '../api.js'
 import { ROLES, fecha, hoy } from '../util.js'
 
 const MENU = [
   { id: 'inicio', nombre: 'Inicio', icono: 'dashboard' },
+  { id: 'semaforo', nombre: 'Alerta temprana', icono: 'traffic' },
   { id: 'docentes', nombre: 'Equipo docente', icono: 'badge' },
+  { id: 'calendario', nombre: 'Calendario', icono: 'event' },
   { id: 'usuarios', nombre: 'Usuarios', icono: 'group' },
   { id: 'academico', nombre: 'Grados y asignaturas', icono: 'school' },
   { id: 'periodos', nombre: 'Periodos', icono: 'date_range' },
@@ -29,7 +33,9 @@ export default function Admin({ usuario, onSalir }) {
   const [vista, setVista] = useState('inicio')
   const VISTAS = {
     inicio: <Inicio ir={setVista} />,
+    semaforo: <SemaforoInstitucional />,
     docentes: <Docentes />,
+    calendario: <Calendario />,
     usuarios: <Usuarios />,
     academico: <Academico />,
     periodos: <Periodos />,
@@ -124,6 +130,7 @@ function Usuarios() {
   const consulta = useApi(`/admin/usuarios?rol=${rol}&q=${encodeURIComponent(buscar)}`)
   const [nuevo, setNuevo] = useState(false)
   const [clave, setClave] = useState(null)
+  const [aCargo, setACargo] = useState(null)
   const accion = useAccion()
 
   useEffect(() => {
@@ -167,6 +174,9 @@ function Usuarios() {
                     <td>{u.grado ?? '—'}</td>
                     <td><span className={u.activo ? 'chip ok' : 'chip alerta'}>{u.activo ? 'Activo' : 'Inactivo'}</span></td>
                     <td className="acciones-fila">
+                      {u.rol === 'acudiente' && (
+                        <button className="btn-icono" title="Estudiantes a cargo" onClick={() => setACargo(u)}><Icono nombre="family_restroom" /></button>
+                      )}
                       <button className="btn-icono" title="Restablecer contraseña" onClick={() => setClave(u)}><Icono nombre="key" /></button>
                       <button className="btn-icono" title={u.activo ? 'Desactivar' : 'Activar'} onClick={() => alternar(u)}>
                         <Icono nombre={u.activo ? 'block' : 'check_circle'} />
@@ -181,7 +191,54 @@ function Usuarios() {
       </ConDatos>
       {nuevo && <NuevoUsuario onCerrar={(ok) => { setNuevo(false); if (ok) consulta.recargar() }} />}
       {clave && <RestablecerClave usuario={clave} onCerrar={() => setClave(null)} />}
+      {aCargo && <EstudiantesACargo acudiente={aCargo} onCerrar={() => setACargo(null)} />}
     </Caja>
+  )
+}
+
+// Vincula a un acudiente con sus hijos (por el documento del estudiante)
+function EstudiantesACargo({ acudiente, onCerrar }) {
+  const consulta = useApi(`/admin/acudientes/${acudiente.id}`)
+  const [nuevo, setNuevo] = useState({ documento_estudiante: '', parentesco: '' })
+  const accion = useAccion()
+
+  async function vincular(e) {
+    e.preventDefault()
+    if (await accion.ejecutar(() => api('/admin/acudientes', { method: 'POST', body: { ...nuevo, acudiente_id: acudiente.id } }), 'Estudiante vinculado')) {
+      setNuevo({ documento_estudiante: '', parentesco: '' })
+      consulta.recargar()
+    }
+  }
+
+  async function quitar(est) {
+    if (!window.confirm(`¿Quitar a ${est.nombres} de los estudiantes a cargo?`)) return
+    if (await accion.ejecutar(() => api(`/admin/acudientes/${acudiente.id}/${est.estudiante_id}`, { method: 'DELETE' }), 'Vínculo eliminado')) consulta.recargar()
+  }
+
+  return (
+    <Modal titulo={`Estudiantes a cargo · ${acudiente.nombres} ${acudiente.apellidos}`} onCerrar={onCerrar}>
+      <ConDatos consulta={consulta}>
+        {(lista) => lista.length === 0 ? <Vacio icono="family_restroom">Aún no tiene estudiantes vinculados.</Vacio> : (
+          <ul className="lista-simple">
+            {lista.map((e) => (
+              <li key={e.estudiante_id}>
+                <div>
+                  <strong>{e.nombres} {e.apellidos}</strong>
+                  <small>Doc. {e.documento} · {e.grado ?? 'sin grado'}{e.parentesco ? ` · ${e.parentesco}` : ''}</small>
+                </div>
+                <button className="btn-icono peligro" title="Quitar" onClick={() => quitar(e)}><Icono nombre="link_off" /></button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </ConDatos>
+      <form className="fila-form" onSubmit={vincular}>
+        <input placeholder="Documento del estudiante" value={nuevo.documento_estudiante} onChange={(e) => setNuevo({ ...nuevo, documento_estudiante: e.target.value })} required />
+        <input placeholder="Parentesco (ej. Madre)" value={nuevo.parentesco} maxLength={40} onChange={(e) => setNuevo({ ...nuevo, parentesco: e.target.value })} />
+        <button className="btn-primario"><Icono nombre="link" /> Vincular</button>
+      </form>
+      <Aviso tipo={accion.msg.tipo}>{accion.msg.texto}</Aviso>
+    </Modal>
   )
 }
 

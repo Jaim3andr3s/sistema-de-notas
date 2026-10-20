@@ -6,6 +6,7 @@ import { autenticar, ErrorHttp } from '../auth.js'
 import { matriculaActual, cargaPermitida } from '../acceso.js'
 import { subir } from '../archivos.js'
 import { entero } from '../validar.js'
+import { notificar } from '../notificaciones.js'
 
 const router = Router()
 router.use(autenticar)
@@ -106,6 +107,16 @@ router.post('/cursos/:id/publicaciones', subir.single('archivo'), async (req, re
     archivo_nombre: req.file?.originalname ?? null,
     fijada,
   }])
+  // Lo que publica el docente les llega a los estudiantes del grado
+  if (puedeModerar(req.usuario, curso)) {
+    const [estudiantes] = await pool.query(
+      "SELECT e.usuario_id AS id FROM matriculas m JOIN estudiantes e ON e.id = m.estudiante_id WHERE m.grado_id = ? AND m.estado = 'activa'",
+      [curso.grado_id]
+    )
+    notificar(estudiantes.map((e) => e.id), {
+      tipo: 'muro', titulo: `Nueva publicación en ${curso.asignatura}`, texto: req.body.texto.trim().slice(0, 140), vista: 'clases',
+    })
+  }
   res.status(201).json({ id: r.insertId })
 })
 
@@ -152,24 +163,41 @@ router.delete('/comentarios/:id', async (req, res) => {
 
 // ---------- Mensajes privados ----------
 
+// Docentes y director de los grados indicados
+async function docentesDeGrados(grados) {
+  if (!grados.length) return []
+  const [docentes] = await pool.query(
+    `SELECT u.id, u.nombres, u.apellidos, u.rol,
+            CONCAT_WS(' · ', IF(MAX(g.director_id = u.id), CONCAT('Director(a) de ', GROUP_CONCAT(DISTINCT IF(g.director_id = u.id, g.nombre, NULL))), NULL),
+                      GROUP_CONCAT(DISTINCT CONCAT(a.nombre, ' ', g.nombre) ORDER BY a.nombre SEPARATOR ', ')) AS detalle
+       FROM usuarios u
+       JOIN grados g ON g.id IN (?)
+       LEFT JOIN cargas c      ON c.docente_id = u.id AND c.grado_id = g.id
+       LEFT JOIN asignaturas a ON a.id = c.asignatura_id
+      WHERE u.activo AND (c.id IS NOT NULL OR g.director_id = u.id)
+      GROUP BY u.id
+      ORDER BY u.nombres, u.apellidos`,
+    [grados]
+  )
+  return docentes
+}
+
+const coordinacion = async () =>
+  (await pool.query("SELECT id, nombres, apellidos, rol, 'Coordinación' AS detalle FROM usuarios WHERE rol = 'administrador' AND activo"))[0]
+
 // Con quién puede iniciar una conversación cada rol
 async function contactos(usuario) {
-  if (usuario.rol === 'estudiante') {
-    const m = await matriculaActual(usuario.id)
-    const [docentes] = await pool.query(
-      `SELECT u.id, u.nombres, u.apellidos, u.rol,
-              CONCAT_WS(' · ', IF(MAX(g.director_id = u.id), 'Director de grupo', NULL),
-                        GROUP_CONCAT(DISTINCT a.nombre ORDER BY a.nombre SEPARATOR ', ')) AS detalle
-         FROM usuarios u
-         JOIN grados g ON g.id = ?
-         LEFT JOIN cargas c      ON c.docente_id = u.id AND c.grado_id = g.id
-         LEFT JOIN asignaturas a ON a.id = c.asignatura_id
-        WHERE u.activo AND (c.id IS NOT NULL OR g.director_id = u.id)
-        GROUP BY u.id
-        ORDER BY u.nombres, u.apellidos`,
-      [m.grado_id]
+  if (usuario.rol === 'acudiente') {
+    const [grados] = await pool.query(
+      `SELECT DISTINCT m.grado_id FROM acudientes a
+         JOIN matriculas m ON m.estudiante_id = a.estudiante_id AND m.estado = 'activa'
+        WHERE a.acudiente_id = ?`,
+      [usuario.id]
     )
-    return docentes
+    return [...(await coordinacion()), ...(await docentesDeGrados(grados.map((g) => g.grado_id)))]
+  }
+  if (usuario.rol === 'estudiante') {
+    return docentesDeGrados([(await matriculaActual(usuario.id)).grado_id])
   }
   if (usuario.rol === 'docente') {
     const [estudiantes] = await pool.query(
@@ -184,10 +212,22 @@ async function contactos(usuario) {
         ORDER BY u.apellidos, u.nombres`,
       [usuario.id, usuario.id]
     )
-    const [admins] = await pool.query(
-      "SELECT id, nombres, apellidos, rol, 'Coordinación' AS detalle FROM usuarios WHERE rol = 'administrador' AND activo"
+    const [acudientes] = await pool.query(
+      `SELECT u.id, u.nombres, u.apellidos, u.rol,
+              CONCAT('Acudiente de ', GROUP_CONCAT(DISTINCT CONCAT(eu.nombres, ' (', g.nombre, ')') SEPARATOR ', ')) AS detalle
+         FROM acudientes ac
+         JOIN usuarios u     ON u.id = ac.acudiente_id
+         JOIN estudiantes e  ON e.id = ac.estudiante_id
+         JOIN usuarios eu    ON eu.id = e.usuario_id
+         JOIN matriculas m   ON m.estudiante_id = e.id AND m.estado = 'activa'
+         JOIN grados g       ON g.id = m.grado_id
+        WHERE u.activo
+          AND (g.director_id = ? OR EXISTS (SELECT 1 FROM cargas c WHERE c.grado_id = g.id AND c.docente_id = ?))
+        GROUP BY u.id
+        ORDER BY u.apellidos, u.nombres`,
+      [usuario.id, usuario.id]
     )
-    return [...admins, ...estudiantes]
+    return [...(await coordinacion()), ...estudiantes, ...acudientes]
   }
   const [todos] = await pool.query(
     'SELECT id, nombres, apellidos, rol, NULL AS detalle FROM usuarios WHERE activo AND id <> ? ORDER BY rol, apellidos, nombres',
@@ -293,9 +333,25 @@ router.get('/actividades/:id/comentarios', async (req, res) => {
 
 router.post('/actividades/:id/comentarios', async (req, res) => {
   const { a, matriculaId } = await hiloPermitido(req.usuario, entero(req.params.id, 'Actividad'), req.body.matricula_id)
+  const texto = textoValido(req.body.texto, 2000)
   const [r] = await pool.query('INSERT INTO comentarios_entrega SET ?', [{
-    actividad_id: a.id, matricula_id: matriculaId, autor_id: req.usuario.id, texto: textoValido(req.body.texto, 2000),
+    actividad_id: a.id, matricula_id: matriculaId, autor_id: req.usuario.id, texto,
   }])
+  // Avisa a la otra parte de la conversación
+  const [[info]] = await pool.query(
+    `SELECT x.titulo, c.docente_id, e.usuario_id AS estudiante_id, CONCAT(u.nombres, ' ', u.apellidos) AS estudiante
+       FROM actividades x JOIN cargas c ON c.id = x.carga_id
+       JOIN matriculas m ON m.id = ? JOIN estudiantes e ON e.id = m.estudiante_id JOIN usuarios u ON u.id = e.usuario_id
+      WHERE x.id = ?`,
+    [matriculaId, a.id]
+  )
+  const esEstudiante = req.usuario.rol === 'estudiante'
+  notificar([esEstudiante ? info.docente_id : info.estudiante_id], {
+    tipo: 'comentario',
+    titulo: esEstudiante ? `${info.estudiante} comentó una actividad` : 'Tu docente respondió tu comentario',
+    texto: `${info.titulo}: ${texto.slice(0, 120)}`,
+    vista: 'actividades',
+  })
   res.status(201).json({ id: r.insertId })
 })
 

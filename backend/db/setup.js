@@ -1,7 +1,7 @@
 // Crea la base de datos, las tablas y carga datos de prueba.
 // OJO: borra y recrea todas las tablas. Uso: npm run db:setup
 import 'dotenv/config'
-import { readFile } from 'node:fs/promises'
+import { readFile, readdir } from 'node:fs/promises'
 import mysql from 'mysql2/promise'
 import bcrypt from 'bcryptjs'
 
@@ -10,6 +10,10 @@ const DB = process.env.DB_NAME
 const CLAVE_DEMO = 'demo1234'
 
 if (!/^\w+$/.test(DB || '')) throw new Error('DB_NAME inválido en .env')
+if (process.env.NODE_ENV === 'production' && !process.argv.includes('--forzar')) {
+  console.error('db:setup BORRA todos los datos y NODE_ENV=production. Para actualizar el esquema usa: npm run db:migrate')
+  process.exit(1)
+}
 
 const conn = await mysql.createConnection({
   host: process.env.DB_HOST,
@@ -23,6 +27,11 @@ await conn.query(`CREATE DATABASE IF NOT EXISTS \`${DB}\` CHARACTER SET utf8mb4 
 await conn.query(`USE \`${DB}\``)
 await conn.query(await readFile(new URL('./schema.sql', import.meta.url), 'utf8'))
 console.log(`✓ Base "${DB}" y tablas creadas`)
+
+// schema.sql ya incluye todas las migraciones: se marcan como aplicadas
+for (const nombre of (await readdir(new URL('./migraciones/', import.meta.url))).filter((f) => f.endsWith('.sql'))) {
+  await conn.query('INSERT INTO migraciones (nombre) VALUES (?)', [nombre])
+}
 
 // ---------- Datos de prueba ----------
 const hashDemo = await bcrypt.hash(CLAVE_DEMO, 10)
@@ -255,6 +264,11 @@ const NOTICIAS = [
 for (const [categoria, fecha, destacada, titulo, resumen, contenido] of NOTICIAS) {
   await insertar('noticias', { categoria, fecha, destacada, titulo, resumen, contenido, autor_id: adminId })
 }
+await insertar('preinscripciones', {
+  estudiante_nombre: 'Aspirante de ejemplo', grado_aspira: '6°', sede: 'Sede Principal', colegio_procedencia: 'Escuela de ejemplo',
+  acudiente_nombre: 'Acudiente de ejemplo', acudiente_telefono: '3000000000', acepta_datos_en: new Date(),
+  observaciones: 'Registro de prueba creado por npm run db:setup.',
+})
 await insertar('mensajes_contacto', {
   nombre: 'Madre de familia (ejemplo)', telefono: '3000000000', asunto: 'Información de matrículas',
   mensaje: 'Buenas tardes, quisiera saber qué documentos necesito para matricular a mi hijo en sexto grado.',
@@ -292,6 +306,40 @@ for (const [remitente_id, destinatario_id, texto, creado_en, leido_en] of [
   await insertar('mensajes', { remitente_id, destinatario_id, texto, creado_en, leido_en })
 }
 
+// Acudiente demo: madre del estudiante demo y de Santiago (para ver el cambio entre hijos)
+const acudienteDemo = await usuario('4444444444', 'acudiente', 'Acudiente', 'Demo', 'acudiente.demo@correo.com')
+for (const [documento, parentesco] of [['1111111111', 'Madre'], ['1001000002', 'Madre']]) {
+  const [[e]] = await conn.query('SELECT e.id FROM estudiantes e JOIN usuarios u ON u.id = e.usuario_id WHERE u.documento = ?', [documento])
+  await insertar('acudientes', { acudiente_id: acudienteDemo, estudiante_id: e.id, parentesco })
+}
+await insertar('mensajes', {
+  remitente_id: acudienteDemo, destinatario_id: docentes.Demo, creado_en: '2026-10-18 20:15:00', leido_en: null,
+  texto: 'Buenas noches profe, soy la mamá de Estudiante Demo. Quisiera saber cómo va en Química este periodo.',
+})
+
+// Planes de mejoramiento de Matemáticas 10°A (periodo 3): el estudiante demo y quien perdió el periodo
+const [enRiesgo] = await conn.query(
+  'SELECT matricula_id FROM notas WHERE carga_id = ? AND periodo_id = ? AND (nota < 3.0 OR matricula_id = ?)',
+  [cargas[g10a]['Matemáticas'], periodos[2], matriculas[g10a][0]]
+)
+for (const { matricula_id } of enRiesgo) {
+  await insertar('planes_mejoramiento', {
+    matricula_id, carga_id: cargas[g10a]['Matemáticas'], periodo_id: periodos[2], creado_por: docentes.Demo, fecha_limite: '2026-10-30',
+    descripcion: 'Resolver el taller de refuerzo de razones trigonométricas (ejercicios 1 al 20) y presentar una sustentación oral de 10 minutos.',
+  })
+}
+
+// Notificaciones de ejemplo para el estudiante y el acudiente demo
+for (const destino of [estDemo, acudienteDemo]) {
+  for (const [tipo, titulo, texto, vista, creado_en] of [
+    ['actividad', 'Nueva actividad en Química', 'Informe de laboratorio: reacciones químicas · entrega 24 oct', 'actividades', '2026-10-05 08:00:00'],
+    ['calificacion', 'Nueva calificación en Matemáticas', 'Taller de funciones trigonométricas', 'actividades', '2026-10-12 10:00:00'],
+    ['falla', 'Falla en Inglés', 'Estudiante no asistió a Inglés el 15 oct', 'asistencia', '2026-10-15 09:20:00'],
+  ]) {
+    await insertar('notificaciones', { usuario_id: destino, tipo, titulo, texto, vista, creado_en })
+  }
+}
+
 const [[informe]] = await conn.query("SELECT id FROM actividades WHERE titulo LIKE 'Informe de laboratorio%'")
 await insertar('comentarios_entrega', {
   actividad_id: informe.id, matricula_id: matriculas[g10a][0], autor_id: estDemo, creado_en: '2026-10-17 10:15:00',
@@ -305,3 +353,4 @@ console.log(`Usuarios demo (contraseña para todos: ${CLAVE_DEMO})`)
 console.log('  Estudiante     1111111111   (10°A)')
 console.log('  Docente        2222222222   (Matemáticas y Química, director de 10°A)')
 console.log('  Administrador  3333333333')
+console.log('  Acudiente      4444444444   (madre del estudiante demo y de Santiago)')

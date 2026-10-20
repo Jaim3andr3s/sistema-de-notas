@@ -1,28 +1,48 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { api } from '../api.js'
 import { Icono, useApi } from '../componentes/ui.jsx'
 import { fecha } from '../util.js'
 import { COLEGIO, PILARES, MISION, VISION, NIVELES, SEDES, CATEGORIAS } from './contenido.js'
 import './sitio.css'
+import { Titulo } from './comun.jsx'
+import { Admisiones, Transparencia, Galerias, Album, Directorio, Privacidad, BotonWhatsApp, AceptaDatos } from './Paginas.jsx'
 
+// Menú principal (como en las universidades: pocas opciones y claras)
 const ENLACES = [
-  ['inicio', 'Inicio'],
-  ['nosotros', 'Nosotros'],
-  ['niveles', 'Oferta educativa'],
-  ['noticias', 'Noticias'],
-  ['plataforma', 'Plataforma'],
-  ['contacto', 'Contacto'],
+  ['/#nosotros', 'Nosotros'],
+  ['/admisiones', 'Admisiones'],
+  ['/#noticias', 'Noticias'],
+  ['/galeria', 'Galería'],
+  ['/transparencia', 'Transparencia'],
+  ['/#contacto', 'Contacto'],
+]
+
+// Pie de página por columnas
+const PIE = [
+  ['El colegio', [['/#nosotros', 'Nosotros'], ['/#niveles', 'Oferta educativa'], ['/directorio', 'Directorio y sedes'], ['/galeria', 'Galería']]],
+  ['Comunidad', [['/#noticias', 'Noticias'], ['/#agenda', 'Agenda'], ['/#facebook', 'Facebook'], ['/plataforma', 'Plataforma académica']]],
+  ['Atención', [['/admisiones', 'Admisiones y matrículas'], ['/transparencia', 'Transparencia'], ['/privacidad', 'Tratamiento de datos'], ['/#contacto', 'Contacto']]],
 ]
 
 const imagen = (n) => `/api/publico/imagenes/${n}`
 
 export default function Sitio({ ruta }) {
   const noticiaId = ruta.match(/^\/noticias\/(\d+)/)?.[1]
+  const codigo = ruta.match(/^\/verificar\/([\w-]+)/)?.[1]
+  const albumId = ruta.match(/^\/galeria\/(\d+)/)?.[1]
+  const PAGINAS = { '/admisiones': Admisiones, '/transparencia': Transparencia, '/galeria': Galerias, '/directorio': Directorio, '/privacidad': Privacidad }
+  const Pagina = PAGINAS[ruta.replace(/\/$/, '')]
+  let contenido = <Portada />
+  if (codigo) contenido = <Verificacion codigo={codigo} />
+  else if (noticiaId) contenido = <DetalleNoticia id={noticiaId} />
+  else if (albumId) contenido = <Album id={albumId} />
+  else if (Pagina) contenido = <Pagina />
   return (
     <div className="sitio">
       <Encabezado />
-      {noticiaId ? <DetalleNoticia id={noticiaId} /> : <Portada />}
+      {contenido}
       <Pie />
+      <BotonWhatsApp />
     </div>
   )
 }
@@ -35,6 +55,7 @@ function Encabezado() {
         <div className="s-contenedor">
           <span><Icono nombre="place" /> {COLEGIO.ciudad}</span>
           <span className="s-lema-sup">{COLEGIO.lema}</span>
+          <a className="s-red-social" href={COLEGIO.facebook} target="_blank" rel="noreferrer"><Icono nombre="thumb_up" /> Facebook</a>
         </div>
       </div>
       <div className="s-contenedor s-nav">
@@ -49,8 +70,8 @@ function Encabezado() {
           <Icono nombre={abierto ? 'close' : 'menu'} />
         </button>
         <nav className={abierto ? 'abierto' : ''}>
-          {ENLACES.map(([id, nombre]) => (
-            <a key={id} href={`/#${id}`} onClick={() => setAbierto(false)}>{nombre}</a>
+          {ENLACES.map(([href, nombre]) => (
+            <a key={href} href={href} onClick={() => setAbierto(false)} aria-current={window.location.pathname === href ? 'page' : undefined}>{nombre}</a>
           ))}
           <a href="/plataforma" className="s-btn-plataforma"><Icono nombre="login" /> Ingresar</a>
         </nav>
@@ -71,7 +92,6 @@ function Portada() {
   return (
     <main>
       <section id="inicio" className="s-heroe">
-        <div className="s-heroe-franjas" aria-hidden="true"><span /><span /><span /></div>
         <div className="s-contenedor s-heroe-grid">
           <div>
             <p className="s-etiqueta">{COLEGIO.ciudad}</p>
@@ -79,7 +99,7 @@ function Portada() {
             <p className="s-heroe-eslogan">{COLEGIO.eslogan}</p>
             <blockquote>“{COLEGIO.frase}”</blockquote>
             <div className="s-heroe-acciones">
-              <a href="/plataforma" className="s-btn s-btn-amarillo"><Icono nombre="grading" /> Consultar notas</a>
+              <a href="/plataforma" className="s-btn s-btn-claro"><Icono nombre="grading" /> Consultar notas</a>
               <a href="/#nosotros" className="s-btn s-btn-borde">Conócenos</a>
             </div>
           </div>
@@ -89,11 +109,24 @@ function Portada() {
         </div>
       </section>
 
-      <section className="s-contenedor s-cifras">
-        <div><Icono nombre="groups" /><strong>{c?.estudiantes ?? '—'}</strong><span>Estudiantes</span></div>
-        <div><Icono nombre="co_present" /><strong>{c?.docentes ?? '—'}</strong><span>Docentes</span></div>
-        <div><Icono nombre="apartment" /><strong>{SEDES.length}</strong><span>Sedes</span></div>
-        <div className="destacado"><Icono nombre="emoji_events" /><strong>295</strong><span>Mejor puntaje Saber 11 · 2026</span></div>
+      <nav className="s-contenedor s-accesos" aria-label="Accesos rápidos">
+        {ACCESOS.map((a) => (
+          <a key={a.titulo} href={a.href} {...(a.externo ? { target: '_blank', rel: 'noreferrer' } : {})}>
+            <span className="s-acceso-icono"><Icono nombre={a.icono} /></span>
+            <span>
+              <strong>{a.titulo}</strong>
+              <small>{a.texto}</small>
+            </span>
+            <Icono nombre="arrow_forward" />
+          </a>
+        ))}
+      </nav>
+
+      <section className="s-contenedor s-cifras" aria-label="El colegio en cifras">
+        <div><strong>{c?.estudiantes ?? '—'}</strong><span>Estudiantes</span></div>
+        <div><strong>{c?.docentes ?? '—'}</strong><span>Docentes</span></div>
+        <div><strong>{SEDES.length}</strong><span>Sedes</span></div>
+        <div><strong>295</strong><span>Mejor puntaje Saber 11 · 2026</span></div>
       </section>
 
       <section id="nosotros" className="s-seccion">
@@ -121,9 +154,9 @@ function Portada() {
         </div>
       </section>
 
-      <section id="niveles" className="s-seccion s-fondo-azul">
+      <section id="niveles" className="s-seccion s-fondo-suave">
         <div className="s-contenedor">
-          <Titulo etiqueta="Oferta educativa" titulo="Del preescolar a la media académica" claro />
+          <Titulo etiqueta="Oferta educativa" titulo="Del preescolar a la media académica" />
           <div className="s-niveles">
             {NIVELES.map((n) => (
               <article key={n.titulo}>
@@ -133,7 +166,7 @@ function Portada() {
               </article>
             ))}
           </div>
-          <h3 className="s-subtitulo-claro">Nuestras sedes</h3>
+          <h3 className="s-subtitulo">Nuestras sedes</h3>
           <div className="s-sedes">
             {SEDES.map((s) => (
               <article key={s.nombre}>
@@ -149,6 +182,7 @@ function Portada() {
       </section>
 
       <Noticias />
+      <Facebook />
       <Eventos />
       <Plataforma />
       <Contacto />
@@ -156,15 +190,14 @@ function Portada() {
   )
 }
 
-function Titulo({ etiqueta, titulo, texto, claro }) {
-  return (
-    <div className={claro ? 's-titulo claro' : 's-titulo'}>
-      <span className="s-etiqueta">{etiqueta}</span>
-      <h2>{titulo}</h2>
-      {texto && <p>{texto}</p>}
-    </div>
-  )
-}
+// Como en las páginas de universidades: lo que más se busca, a un clic
+const ACCESOS = [
+  { icono: 'grading', titulo: 'Consultar notas', texto: 'Plataforma académica', href: '/plataforma' },
+  { icono: 'how_to_reg', titulo: 'Matrículas 2027', texto: 'Requisitos e inscripciones', href: '/#contacto' },
+  { icono: 'newspaper', titulo: 'Noticias', texto: 'Lo último del colegio', href: '/#noticias' },
+  { icono: 'thumb_up', titulo: 'Facebook', texto: 'Fotos y eventos', href: COLEGIO.facebook, externo: true },
+]
+
 
 function Portadilla({ noticia, grande }) {
   const cat = CATEGORIAS[noticia.categoria]
@@ -216,11 +249,84 @@ function Noticias() {
   )
 }
 
+// El SDK de Facebook se carga una sola vez y solo si hay algo que mostrar
+let sdkFacebook
+function cargarSdkFacebook() {
+  sdkFacebook ??= new Promise((resolver, rechazar) => {
+    window.fbAsyncInit = () => {
+      window.FB.init({ xfbml: false, version: 'v22.0' })
+      resolver(window.FB)
+    }
+    const script = document.createElement('script')
+    script.src = 'https://connect.facebook.net/es_LA/sdk.js'
+    script.async = true
+    script.crossOrigin = 'anonymous'
+    script.onerror = rechazar
+    document.body.appendChild(script)
+  })
+  return sdkFacebook
+}
+
+function Facebook() {
+  const consulta = useApi('/publico/facebook')
+  const contenedor = useRef(null)
+  const publicaciones = consulta.datos ?? []
+  const hayContenido = publicaciones.length > 0 || Boolean(COLEGIO.facebookPagina)
+
+  useEffect(() => {
+    if (!hayContenido) return
+    cargarSdkFacebook()
+      .then((FB) => contenedor.current && FB.XFBML.parse(contenedor.current))
+      .catch(() => {}) // si Facebook está bloqueado quedan los enlaces de respaldo
+  }, [hayContenido, publicaciones.length])
+
+  return (
+    <section id="facebook" className="s-seccion s-fondo-suave">
+      <div className="s-contenedor">
+        <div className="s-titulo-fila">
+          <Titulo etiqueta="Comunidad" titulo="Síguenos en Facebook" texto="Fotos, eventos y el día a día de la comunidad maximista." />
+          <a href={COLEGIO.facebook} target="_blank" rel="noreferrer" className="s-btn s-btn-borde-azul"><Icono nombre="open_in_new" /> Ver perfil</a>
+        </div>
+        <div ref={contenedor}>
+          {COLEGIO.facebookPagina && (
+            <div className="s-facebook-pagina">
+              <div className="fb-page" data-href={COLEGIO.facebookPagina} data-tabs="timeline" data-width="500" data-height="700"
+                data-adapt-container-width="true" data-hide-cover="false" data-small-header="false" />
+            </div>
+          )}
+          {publicaciones.length > 0 ? (
+            <div className="s-facebook">
+              {publicaciones.map((p) => (
+                <article key={p.id}>
+                  <div className="fb-post" data-href={p.url} data-width="auto" data-show-text="true">
+                    <blockquote cite={p.url} className="fb-xfbml-parse-ignore">
+                      <a href={p.url} target="_blank" rel="noreferrer">Ver publicación en Facebook</a>
+                    </blockquote>
+                  </div>
+                </article>
+              ))}
+            </div>
+          ) : !COLEGIO.facebookPagina && (
+            <a href={COLEGIO.facebook} target="_blank" rel="noreferrer" className="s-facebook-vacio">
+              <Icono nombre="photo_library" />
+              <span>
+                <strong>Mira nuestras fotos y publicaciones</strong>
+                <small>Visita el Facebook de la Institución Educativa Máximo Mercado</small>
+              </span>
+              <Icono nombre="arrow_forward" />
+            </a>
+          )}
+        </div>
+      </div>
+    </section>
+  )
+}
+
 function Eventos() {
   const consulta = useApi('/publico/eventos')
   if (!consulta.datos?.length) return null
   return (
-    <section className="s-seccion s-fondo-suave">
+    <section id="agenda" className="s-seccion">
       <div className="s-contenedor">
         <Titulo etiqueta="Agenda" titulo="Próximos eventos" />
         <div className="s-eventos">
@@ -281,7 +387,7 @@ function Plataforma() {
   )
 }
 
-const VACIO = { nombre: '', correo: '', telefono: '', asunto: '', mensaje: '' }
+const VACIO = { nombre: '', correo: '', telefono: '', asunto: '', mensaje: '', acepta_datos: false }
 
 function Contacto() {
   const [f, setF] = useState(VACIO)
@@ -303,12 +409,13 @@ function Contacto() {
   }
 
   return (
-    <section id="contacto" className="s-seccion s-fondo-azul">
+    <section id="contacto" className="s-seccion s-fondo-suave">
       <div className="s-contenedor s-contacto">
         <div>
-          <Titulo etiqueta="Contacto" titulo="Escríbenos" texto="Matrículas, certificados, información general o cualquier inquietud: con gusto te atendemos." claro />
+          <Titulo etiqueta="Contacto" titulo="Escríbenos" texto="Matrículas, certificados, información general o cualquier inquietud: con gusto te atendemos." />
           <ul className="s-datos-contacto">
-            <li><Icono nombre="place" /> {COLEGIO.direccion}</li>
+            <li><Icono nombre="place" /> {COLEGIO.direccion} · <a href="/directorio">Ver sedes y directorio</a></li>
+            {COLEGIO.horarioAtencion && <li><Icono nombre="schedule" /> {COLEGIO.horarioAtencion}</li>}
             {COLEGIO.telefono && <li><Icono nombre="call" /> {COLEGIO.telefono}</li>}
             {COLEGIO.correo && <li><Icono nombre="mail" /> {COLEGIO.correo}</li>}
             <li><Icono nombre="thumb_up" /> <a href={COLEGIO.facebook} target="_blank" rel="noreferrer">Síguenos en Facebook</a></li>
@@ -325,8 +432,9 @@ function Contacto() {
           </div>
           <label>Mensaje<textarea rows={5} value={f.mensaje} onChange={cambiar('mensaje')} required maxLength={3000} /></label>
           <small>Déjanos al menos un correo o un teléfono para responderte.</small>
+          <AceptaDatos valor={f.acepta_datos} onCambio={(v) => setF({ ...f, acepta_datos: v })} />
           {estado.texto && <p className={`s-aviso ${estado.tipo}`}>{estado.texto}</p>}
-          <button className="s-btn s-btn-amarillo" disabled={enviando}>{enviando ? 'Enviando…' : 'Enviar mensaje'}</button>
+          <button className="s-btn s-btn-azul" disabled={enviando}>{enviando ? 'Enviando…' : 'Enviar mensaje'}</button>
         </form>
       </div>
     </section>
@@ -375,26 +483,65 @@ function DetalleNoticia({ id }) {
   )
 }
 
+// Lo que ve quien escanea el QR del carnet o de una constancia
+function Verificacion({ codigo }) {
+  const consulta = useApi(`/publico/verificar/${encodeURIComponent(codigo)}`)
+  const v = consulta.datos
+  useEffect(() => {
+    document.title = 'Verificación de estudiante · IEMM'
+  }, [])
+  return (
+    <main className="s-seccion s-fondo-suave">
+      <div className="s-contenedor s-verificacion">
+        {consulta.cargando && <p className="s-vacio">Verificando…</p>}
+        {consulta.error && (
+          <article className="invalida">
+            <Icono nombre="gpp_bad" />
+            <h1>Código no válido</h1>
+            <p>Este carnet o constancia no corresponde a ningún estudiante de la institución. Si crees que es un error, comunícate con la secretaría.</p>
+          </article>
+        )}
+        {v && (
+          <article className={v.estado === 'activa' ? 'valida' : 'invalida'}>
+            <Icono nombre={v.estado === 'activa' ? 'verified' : 'gpp_maybe'} />
+            <h1>{v.estado === 'activa' ? 'Estudiante con matrícula activa' : `Matrícula ${v.estado}`}</h1>
+            <dl>
+              <div><dt>Nombre</dt><dd>{v.nombres} {v.apellidos}</dd></div>
+              <div><dt>Documento</dt><dd>{v.documento}</dd></div>
+              <div><dt>Grado</dt><dd>{v.grado} · Jornada {v.jornada}</dd></div>
+              <div><dt>Año lectivo</dt><dd>{v.anio}</dd></div>
+            </dl>
+            <small>Verificado en línea por la {COLEGIO.nombre} el {new Date().toLocaleDateString('es-CO', { day: 'numeric', month: 'long', year: 'numeric' })}.</small>
+          </article>
+        )}
+      </div>
+    </main>
+  )
+}
+
 function Pie() {
   return (
     <footer className="s-pie">
-      <div className="s-pie-franjas" aria-hidden="true"><span /><span /><span /></div>
       <div className="s-contenedor s-pie-grid">
         <div className="s-pie-marca">
           <img src="/escudo.jpeg" alt="" />
           <div>
             <strong>{COLEGIO.nombre}</strong>
             <span>{COLEGIO.lema}</span>
+            <small>{COLEGIO.ciudad}</small>
           </div>
         </div>
-        <nav>
-          {ENLACES.map(([id, nombre]) => <a key={id} href={`/#${id}`}>{nombre}</a>)}
-        </nav>
-        <div>
-          <a href="/plataforma" className="s-btn s-btn-amarillo"><Icono nombre="login" /> Plataforma</a>
-        </div>
+        {PIE.map(([titulo, enlaces]) => (
+          <nav key={titulo} aria-label={titulo}>
+            <h3>{titulo}</h3>
+            {enlaces.map(([href, nombre]) => <a key={href} href={href}>{nombre}</a>)}
+          </nav>
+        ))}
       </div>
-      <p className="s-copy">© {new Date().getFullYear()} {COLEGIO.nombre} · {COLEGIO.ciudad}</p>
+      <div className="s-contenedor s-pie-final">
+        <p>© {new Date().getFullYear()} {COLEGIO.nombre} · Institución oficial</p>
+        <a href={COLEGIO.facebook} target="_blank" rel="noreferrer"><Icono nombre="thumb_up" /> Facebook</a>
+      </div>
     </footer>
   )
 }

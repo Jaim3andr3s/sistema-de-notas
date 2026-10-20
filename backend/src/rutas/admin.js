@@ -3,12 +3,14 @@ import bcrypt from 'bcryptjs'
 import { pool, transaccion } from '../db.js'
 import { autenticar, permitir, ErrorHttp } from '../auth.js'
 import { entero, requerido } from '../validar.js'
-import { subirImagen } from '../archivos.js'
+import { subir, subirImagen } from '../archivos.js'
+import { notificar, familiasDeGrado } from '../notificaciones.js'
+import { semaforoGrado } from '../academico.js'
 
 const router = Router()
 router.use(autenticar, permitir('administrador'))
 
-const ROLES = ['estudiante', 'docente', 'administrador']
+const ROLES = ['estudiante', 'docente', 'administrador', 'acudiente']
 
 // ---------- Usuarios ----------
 router.get('/usuarios', async (req, res) => {
@@ -60,6 +62,44 @@ router.post('/usuarios', async (req, res) => {
     return r.insertId
   })
   res.status(201).json({ id })
+})
+
+// ---------- Acudientes ----------
+router.get('/acudientes/:id', async (req, res) => {
+  const [filas] = await pool.query(
+    `SELECT e.id AS estudiante_id, u.documento, u.nombres, u.apellidos, a.parentesco,
+            (SELECT g.nombre FROM matriculas m JOIN grados g ON g.id = m.grado_id
+              WHERE m.estudiante_id = e.id ORDER BY m.anio DESC LIMIT 1) AS grado
+       FROM acudientes a JOIN estudiantes e ON e.id = a.estudiante_id JOIN usuarios u ON u.id = e.usuario_id
+      WHERE a.acudiente_id = ? ORDER BY u.nombres`,
+    [entero(req.params.id, 'Acudiente')]
+  )
+  res.json(filas)
+})
+
+// Vincula un estudiante (por su documento) a un acudiente
+router.post('/acudientes', async (req, res) => {
+  requerido(req.body, ['acudiente_id', 'documento_estudiante'])
+  const acudienteId = entero(req.body.acudiente_id, 'Acudiente')
+  const [[a]] = await pool.query("SELECT 1 FROM usuarios WHERE id = ? AND rol = 'acudiente'", [acudienteId])
+  if (!a) throw new ErrorHttp(400, 'El usuario no es acudiente')
+  const [[e]] = await pool.query(
+    'SELECT e.id FROM estudiantes e JOIN usuarios u ON u.id = e.usuario_id WHERE u.documento = ?',
+    [String(req.body.documento_estudiante).trim()]
+  )
+  if (!e) throw new ErrorHttp(404, 'No hay un estudiante con ese documento')
+  await pool.query(
+    'INSERT INTO acudientes (acudiente_id, estudiante_id, parentesco) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE parentesco = VALUES(parentesco)',
+    [acudienteId, e.id, req.body.parentesco?.trim().slice(0, 40) || null]
+  )
+  res.status(201).json({ ok: true })
+})
+
+router.delete('/acudientes/:acudiente/:estudiante', async (req, res) => {
+  await pool.query('DELETE FROM acudientes WHERE acudiente_id = ? AND estudiante_id = ?', [
+    entero(req.params.acudiente, 'Acudiente'), entero(req.params.estudiante, 'Estudiante'),
+  ])
+  res.json({ ok: true })
 })
 
 router.patch('/usuarios/:id', async (req, res) => {
@@ -311,6 +351,17 @@ router.post('/anuncios', async (req, res) => {
     // Solo los anuncios para toda la institución pueden mostrarse en el sitio web
     [titulo, texto, fecha, grado_id || null, !grado_id && Boolean(publico), req.usuario.id]
   )
+  // Anuncio de un grado: a sus familias y docentes; general: a toda la comunidad
+  const [destinos] = grado_id
+    ? await pool.query(
+        `SELECT docente_id AS id FROM cargas WHERE grado_id = ? AND docente_id IS NOT NULL
+         UNION SELECT director_id FROM grados WHERE id = ? AND director_id IS NOT NULL`,
+        [grado_id, grado_id]
+      )
+    : await pool.query("SELECT id FROM usuarios WHERE activo AND rol <> 'administrador'")
+  notificar([...destinos.map((d) => d.id), ...(grado_id ? await familiasDeGrado(grado_id) : [])], {
+    tipo: 'anuncio', titulo: `Anuncio: ${titulo}`, texto, vista: 'inicio',
+  })
   res.status(201).json({ id: r.insertId })
 })
 
@@ -389,6 +440,136 @@ router.get('/anuncios', async (req, res) => {
   res.json(filas)
 })
 
+// ---------- Publicaciones de Facebook ----------
+const HOSTS_FACEBOOK = ['facebook.com', 'www.facebook.com', 'm.facebook.com', 'web.facebook.com']
+const PARAMETROS_FACEBOOK = ['story_fbid', 'id', 'fbid', 'v', 'set']
+
+// Acepta solo enlaces de facebook.com y deja únicamente los parámetros que identifican la publicación
+function enlaceFacebook(valor) {
+  let u
+  try {
+    u = new URL(String(valor ?? '').trim())
+  } catch {
+    throw new ErrorHttp(400, 'Pega el enlace completo de la publicación (empieza por https://www.facebook.com/...)')
+  }
+  if (u.protocol !== 'https:' || !HOSTS_FACEBOOK.includes(u.hostname)) {
+    throw new ErrorHttp(400, 'El enlace debe ser de una publicación de facebook.com')
+  }
+  const limpio = new URL(`https://www.facebook.com${u.pathname.replace(/\/+$/, '')}`)
+  for (const p of PARAMETROS_FACEBOOK) if (u.searchParams.has(p)) limpio.searchParams.set(p, u.searchParams.get(p))
+  if (limpio.pathname.split('/').filter(Boolean).length < 2 && !limpio.search) {
+    throw new ErrorHttp(400, 'Ese enlace es de un perfil, no de una publicación. Abre la publicación y copia su enlace.')
+  }
+  return limpio.toString()
+}
+
+router.get('/facebook', async (req, res) => {
+  const [filas] = await pool.query('SELECT id, url, descripcion, creado_en FROM publicaciones_facebook ORDER BY id DESC')
+  res.json(filas)
+})
+
+router.post('/facebook', async (req, res) => {
+  const url = enlaceFacebook(req.body.url)
+  const descripcion = req.body.descripcion?.trim().slice(0, 200) || null
+  const [r] = await pool.query('INSERT INTO publicaciones_facebook (url, descripcion, autor_id) VALUES (?, ?, ?)', [url, descripcion, req.usuario.id])
+  res.status(201).json({ id: r.insertId, url })
+})
+
+router.delete('/facebook/:id', async (req, res) => {
+  await pool.query('DELETE FROM publicaciones_facebook WHERE id = ?', [entero(req.params.id, 'Publicación')])
+  res.json({ ok: true })
+})
+
+// ---------- Transparencia: documentos ----------
+const CATEGORIAS_DOC = ['institucional', 'planeacion', 'presupuesto', 'normatividad', 'calendario', 'informes']
+
+router.get('/documentos', async (req, res) => {
+  const [filas] = await pool.query('SELECT id, titulo, descripcion, categoria, archivo, archivo_nombre, fecha, publicado FROM documentos ORDER BY fecha DESC, id DESC')
+  res.json(filas)
+})
+
+router.post('/documentos', subir.single('archivo'), async (req, res) => {
+  requerido(req.body, ['titulo', 'categoria', 'fecha'])
+  if (!req.file) throw new ErrorHttp(400, 'Adjunta el documento (PDF de preferencia)')
+  if (!CATEGORIAS_DOC.includes(req.body.categoria)) throw new ErrorHttp(400, 'Categoría inválida')
+  const [r] = await pool.query('INSERT INTO documentos SET ?', [{
+    titulo: String(req.body.titulo).trim().slice(0, 200),
+    descripcion: req.body.descripcion?.trim().slice(0, 300) || null,
+    categoria: req.body.categoria,
+    fecha: req.body.fecha,
+    archivo: req.file.filename,
+    archivo_nombre: req.file.originalname,
+    autor_id: req.usuario.id,
+  }])
+  res.status(201).json({ id: r.insertId })
+})
+
+router.patch('/documentos/:id', async (req, res) => {
+  await pool.query('UPDATE documentos SET publicado = ? WHERE id = ?', [Boolean(req.body.publicado), entero(req.params.id, 'Documento')])
+  res.json({ ok: true })
+})
+
+router.delete('/documentos/:id', async (req, res) => {
+  await pool.query('DELETE FROM documentos WHERE id = ?', [entero(req.params.id, 'Documento')])
+  res.json({ ok: true })
+})
+
+// ---------- Admisiones: preinscripciones ----------
+router.get('/preinscripciones', async (req, res) => {
+  const [filas] = await pool.query('SELECT * FROM preinscripciones ORDER BY (estado = \'nueva\') DESC, creado_en DESC LIMIT 300')
+  res.json(filas)
+})
+
+router.patch('/preinscripciones/:id', async (req, res) => {
+  if (!['nueva', 'contactada', 'admitida', 'no_admitida'].includes(req.body.estado)) throw new ErrorHttp(400, 'Estado inválido')
+  await pool.query('UPDATE preinscripciones SET estado = ? WHERE id = ?', [req.body.estado, entero(req.params.id, 'Preinscripción')])
+  res.json({ ok: true })
+})
+
+router.delete('/preinscripciones/:id', async (req, res) => {
+  await pool.query('DELETE FROM preinscripciones WHERE id = ?', [entero(req.params.id, 'Preinscripción')])
+  res.json({ ok: true })
+})
+
+// ---------- Galería de fotos ----------
+router.get('/galerias', async (req, res) => {
+  const [galerias] = await pool.query('SELECT id, titulo, descripcion, fecha, publicada FROM galerias ORDER BY fecha DESC')
+  const [fotos] = await pool.query('SELECT id, galeria_id, archivo FROM galeria_fotos ORDER BY orden, id')
+  res.json(galerias.map((g) => ({ ...g, fotos: fotos.filter((f) => f.galeria_id === g.id) })))
+})
+
+router.post('/galerias', async (req, res) => {
+  requerido(req.body, ['titulo', 'fecha'])
+  const [r] = await pool.query('INSERT INTO galerias (titulo, descripcion, fecha) VALUES (?, ?, ?)', [
+    String(req.body.titulo).trim().slice(0, 150), req.body.descripcion?.trim().slice(0, 300) || null, req.body.fecha,
+  ])
+  res.status(201).json({ id: r.insertId })
+})
+
+router.patch('/galerias/:id', async (req, res) => {
+  await pool.query('UPDATE galerias SET publicada = ? WHERE id = ?', [Boolean(req.body.publicada), entero(req.params.id, 'Álbum')])
+  res.json({ ok: true })
+})
+
+router.delete('/galerias/:id', async (req, res) => {
+  await pool.query('DELETE FROM galerias WHERE id = ?', [entero(req.params.id, 'Álbum')])
+  res.json({ ok: true })
+})
+
+// Sube hasta 30 fotos a la vez (campo "fotos")
+router.post('/galerias/:id/fotos', subirImagen.array('fotos', 30), async (req, res) => {
+  const id = entero(req.params.id, 'Álbum')
+  if (!req.files?.length) throw new ErrorHttp(400, 'Elige al menos una foto')
+  const [[{ siguiente }]] = await pool.query('SELECT COALESCE(MAX(orden), 0) + 1 AS siguiente FROM galeria_fotos WHERE galeria_id = ?', [id])
+  await pool.query('INSERT INTO galeria_fotos (galeria_id, archivo, orden) VALUES ?', [req.files.map((f, i) => [id, f.filename, siguiente + i])])
+  res.status(201).json({ subidas: req.files.length })
+})
+
+router.delete('/fotos/:id', async (req, res) => {
+  await pool.query('DELETE FROM galeria_fotos WHERE id = ?', [entero(req.params.id, 'Foto')])
+  res.json({ ok: true })
+})
+
 // ---------- Horarios ----------
 router.get('/grados/:id/horario', async (req, res) => {
   const [filas] = await pool.query(
@@ -423,6 +604,23 @@ router.patch('/inasistencias/:id', async (req, res) => {
     Boolean(req.body.justificada), req.body.observacion?.trim() || null, entero(req.params.id, 'Inasistencia'),
   ])
   res.json({ ok: true })
+})
+
+// ---------- Semáforo de toda la institución ----------
+router.get('/semaforo', async (req, res) => {
+  const [grados] = await pool.query('SELECT id FROM grados WHERE anio = (SELECT MAX(anio) FROM grados) ORDER BY nivel, nombre')
+  const resultado = []
+  for (const g of grados) {
+    const s = await semaforoGrado(g.id)
+    resultado.push({
+      grado: s.grado,
+      conteo: Object.fromEntries(['verde', 'amarillo', 'rojo'].map((c) => [c, s.estudiantes.filter((e) => e.color === c).length])),
+      en_rojo: s.estudiantes.filter((e) => e.color === 'rojo').map(({ matricula_id, nombre, rojas, asignaturas }) => ({
+        matricula_id, nombre, rojas, motivos: asignaturas.filter((a) => a.color === 'rojo').map((a) => `${a.asignatura}: ${a.motivos.join('; ')}`),
+      })),
+    })
+  }
+  res.json(resultado)
 })
 
 // ---------- Estadísticas para el inicio ----------

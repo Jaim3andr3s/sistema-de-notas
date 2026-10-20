@@ -1,0 +1,25 @@
+-- Planes de mejoramiento (recuperación) para estudiantes que pierden una asignatura en un periodo
+CREATE TABLE IF NOT EXISTS planes_mejoramiento (
+  id                   INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  matricula_id         INT UNSIGNED NOT NULL,
+  carga_id             INT UNSIGNED NOT NULL,
+  periodo_id           INT UNSIGNED NOT NULL,
+  descripcion          TEXT NOT NULL,
+  fecha_limite         DATE NOT NULL,
+  estado               ENUM('pendiente', 'entregado', 'aprobado', 'no_aprobado') NOT NULL DEFAULT 'pendiente',
+  entrega_texto        TEXT NULL,
+  entrega_archivo      VARCHAR(100) NULL,
+  entrega_archivo_nombre VARCHAR(200) NULL,
+  entregado_en         DATETIME NULL,
+  nota_recuperacion    DECIMAL(2,1) NULL,
+  observacion_docente  TEXT NULL,
+  evaluado_en          DATETIME NULL,
+  creado_por           INT UNSIGNED NULL,
+  creado_en            TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE KEY uq_plan (matricula_id, carga_id, periodo_id),
+  CONSTRAINT fk_plan_matricula FOREIGN KEY (matricula_id) REFERENCES matriculas (id) ON DELETE CASCADE,
+  CONSTRAINT fk_plan_carga     FOREIGN KEY (carga_id)     REFERENCES cargas (id) ON DELETE CASCADE,
+  CONSTRAINT fk_plan_periodo   FOREIGN KEY (periodo_id)   REFERENCES periodos (id),
+  CONSTRAINT fk_plan_autor     FOREIGN KEY (creado_por)   REFERENCES usuarios (id) ON DELETE SET NULL,
+  CONSTRAINT chk_plan_nota CHECK (nota_recuperacion IS NULL OR nota_recuperacion BETWEEN 1.0 AND 5.0)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

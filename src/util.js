@@ -13,7 +13,7 @@ export function promedio(valores) {
   return Math.round((v.reduce((a, b) => a + b, 0) / v.length) * 100) / 100
 }
 
-export const ROLES = { estudiante: 'Estudiante', docente: 'Docente', administrador: 'Administrador' }
+export const ROLES = { estudiante: 'Estudiante', docente: 'Docente', administrador: 'Administrador', acudiente: 'Acudiente' }
 
 export const TIPOS_ACTIVIDAD = {
   tarea: 'Tarea',

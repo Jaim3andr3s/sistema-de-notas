@@ -2,12 +2,14 @@ import { Router } from 'express'
 import { pool } from '../db.js'
 import { autenticar, permitir, ErrorHttp } from '../auth.js'
 import { matriculaActual } from '../acceso.js'
-import { boletin, ponderado } from '../academico.js'
+import { boletin, ponderado, semaforoGrado } from '../academico.js'
 import { subir } from '../archivos.js'
 import { entero } from '../validar.js'
+import { codigoMatricula } from '../verificacion.js'
 
-const router = Router()
-router.use(autenticar, permitir('estudiante'))
+// Las consultas trabajan sobre req.estudianteUid: el propio estudiante, o el hijo que elige un acudiente
+export const vistasEstudiante = Router({ mergeParams: true })
+const router = vistasEstudiante
 
 router.get('/perfil', async (req, res) => {
   const [[perfil]] = await pool.query(
@@ -15,14 +17,14 @@ router.get('/perfil', async (req, res) => {
             e.fecha_nacimiento, e.acudiente_nombre, e.acudiente_telefono
        FROM usuarios u JOIN estudiantes e ON e.usuario_id = u.id
       WHERE u.id = ?`,
-    [req.usuario.id]
+    [req.estudianteUid]
   )
-  res.json({ ...perfil, matricula: await matriculaActual(req.usuario.id) })
+  res.json({ ...perfil, matricula: await matriculaActual(req.estudianteUid) })
 })
 
 // Notas por asignatura con un arreglo alineado a los periodos del año
 router.get('/notas', async (req, res) => {
-  const m = await matriculaActual(req.usuario.id)
+  const m = await matriculaActual(req.estudianteUid)
 
   const [periodos] = await pool.query(
     'SELECT id, numero, nombre, porcentaje, cerrado FROM periodos WHERE anio = ? ORDER BY numero',
@@ -66,7 +68,7 @@ router.get('/notas', async (req, res) => {
 })
 
 router.get('/horario', async (req, res) => {
-  const m = await matriculaActual(req.usuario.id)
+  const m = await matriculaActual(req.estudianteUid)
   const [bloques] = await pool.query(
     `SELECT h.dia, TIME_FORMAT(h.hora_inicio, '%H:%i') AS inicio, TIME_FORMAT(h.hora_fin, '%H:%i') AS fin,
             a.nombre AS asignatura, CONCAT(u.nombres, ' ', u.apellidos) AS docente
@@ -82,7 +84,7 @@ router.get('/horario', async (req, res) => {
 })
 
 router.get('/inasistencias', async (req, res) => {
-  const m = await matriculaActual(req.usuario.id)
+  const m = await matriculaActual(req.estudianteUid)
   const [filas] = await pool.query(
     `SELECT i.id, i.fecha, i.tipo, i.justificada, i.observacion, a.nombre AS asignatura
        FROM inasistencias i
@@ -96,7 +98,7 @@ router.get('/inasistencias', async (req, res) => {
 })
 
 router.get('/anuncios', async (req, res) => {
-  const m = await matriculaActual(req.usuario.id)
+  const m = await matriculaActual(req.estudianteUid)
   const [filas] = await pool.query(
     `SELECT id, titulo, texto, fecha FROM anuncios
       WHERE grado_id IS NULL OR grado_id = ?
@@ -118,7 +120,7 @@ const JOIN_ACTIVIDAD = `FROM actividades a
   LEFT JOIN usuarios u ON u.id = c.docente_id`
 
 router.get('/actividades', async (req, res) => {
-  const m = await matriculaActual(req.usuario.id)
+  const m = await matriculaActual(req.estudianteUid)
   const [filas] = await pool.query(
     `SELECT ${CAMPOS_ACTIVIDAD}, e.entregado_en, e.nota, e.calificado_en,
             JSON_LENGTH(a.preguntas) AS num_preguntas
@@ -142,7 +144,7 @@ async function actividadDelEstudiante(usuarioId, actividadId) {
 }
 
 router.get('/actividades/:id', async (req, res) => {
-  const { m, a } = await actividadDelEstudiante(req.usuario.id, entero(req.params.id, 'Actividad'))
+  const { m, a } = await actividadDelEstudiante(req.estudianteUid, entero(req.params.id, 'Actividad'))
   const [[entrega]] = await pool.query(
     `SELECT texto, archivo, archivo_nombre, respuestas, entregado_en, nota, retroalimentacion, calificado_en
        FROM entregas WHERE actividad_id = ? AND matricula_id = ?`,
@@ -158,7 +160,7 @@ router.get('/actividades/:id', async (req, res) => {
 })
 
 router.post('/actividades/:id/entrega', subir.single('archivo'), async (req, res) => {
-  const { m, a } = await actividadDelEstudiante(req.usuario.id, entero(req.params.id, 'Actividad'))
+  const { m, a } = await actividadDelEstudiante(req.estudianteUid, entero(req.params.id, 'Actividad'))
   if (!a.entrega_en_linea) throw new ErrorHttp(400, 'Esta actividad se entrega de forma presencial')
   if (a.periodo_cerrado) throw new ErrorHttp(409, 'El periodo de esta actividad ya está cerrado')
 
@@ -199,9 +201,59 @@ router.post('/actividades/:id/entrega', subir.single('archivo'), async (req, res
   res.status(201).json({ ok: true, nota })
 })
 
+// ---------- Carnet y constancia de estudio ----------
+router.get('/carnet', async (req, res) => {
+  const m = await matriculaActual(req.estudianteUid)
+  const [[u]] = await pool.query('SELECT documento, nombres, apellidos FROM usuarios WHERE id = ?', [req.estudianteUid])
+  res.json({ ...u, grado: m.grado, jornada: m.jornada, anio: m.anio, estado: m.estado, director: m.director, codigo: codigoMatricula(m.id) })
+})
+
+// ---------- Planes de mejoramiento ----------
+router.get('/mejoramiento', async (req, res) => {
+  const m = await matriculaActual(req.estudianteUid)
+  const [planes] = await pool.query(
+    `SELECT p.id, p.descripcion, p.fecha_limite, p.estado, p.entrega_texto, p.entrega_archivo, p.entrega_archivo_nombre, p.entregado_en,
+            p.nota_recuperacion, p.observacion_docente, p.evaluado_en, s.nombre AS asignatura, pe.nombre AS periodo,
+            CONCAT(u.nombres, ' ', u.apellidos) AS docente, n.nota AS nota_periodo
+       FROM planes_mejoramiento p
+       JOIN cargas c ON c.id = p.carga_id JOIN asignaturas s ON s.id = c.asignatura_id JOIN periodos pe ON pe.id = p.periodo_id
+       LEFT JOIN usuarios u ON u.id = c.docente_id
+       LEFT JOIN notas n ON n.matricula_id = p.matricula_id AND n.carga_id = p.carga_id AND n.periodo_id = p.periodo_id
+      WHERE p.matricula_id = ?
+      ORDER BY (p.estado IN ('aprobado', 'no_aprobado')), p.fecha_limite`,
+    [m.id]
+  )
+  res.json(planes)
+})
+
+router.post('/mejoramiento/:id/entrega', subir.single('archivo'), async (req, res) => {
+  const m = await matriculaActual(req.estudianteUid)
+  const [[plan]] = await pool.query('SELECT id, estado FROM planes_mejoramiento WHERE id = ? AND matricula_id = ?', [entero(req.params.id, 'Plan'), m.id])
+  if (!plan) throw new ErrorHttp(404, 'Plan no encontrado')
+  if (['aprobado', 'no_aprobado'].includes(plan.estado)) throw new ErrorHttp(409, 'Este plan ya fue evaluado')
+  const texto = req.body.texto?.trim() || null
+  if (!texto && !req.file) throw new ErrorHttp(400, 'Escribe una respuesta o adjunta un archivo')
+  await pool.query(
+    `UPDATE planes_mejoramiento SET estado = 'entregado', entrega_texto = ?, entregado_en = NOW(),
+            entrega_archivo = COALESCE(?, entrega_archivo), entrega_archivo_nombre = COALESCE(?, entrega_archivo_nombre)
+      WHERE id = ?`,
+    [texto, req.file?.filename ?? null, req.file?.originalname ?? null, plan.id]
+  )
+  res.json({ ok: true })
+})
+
+// ---------- Semáforo ----------
+router.get('/semaforo', async (req, res) => {
+  const m = await matriculaActual(req.estudianteUid)
+  const { periodo, umbrales, estudiantes } = await semaforoGrado(m.grado_id)
+  const propio = estudiantes.find((e) => e.matricula_id === m.id)
+  if (!propio) throw new ErrorHttp(404, 'No tienes una matrícula activa')
+  res.json({ periodo, umbrales, ...propio })
+})
+
 // ---------- Observador ----------
 router.get('/observador', async (req, res) => {
-  const m = await matriculaActual(req.usuario.id)
+  const m = await matriculaActual(req.estudianteUid)
   const [filas] = await pool.query(
     `SELECT o.id, o.fecha, o.tipo, o.tipificacion, o.descripcion, o.accion, o.descargos, o.descargos_en,
             o.notificado_acudiente, CONCAT(u.nombres, ' ', u.apellidos) AS autor
@@ -215,7 +267,7 @@ router.get('/observador', async (req, res) => {
 
 // El estudiante deja su versión (descargos) una sola vez
 router.post('/observador/:id/descargos', async (req, res) => {
-  const m = await matriculaActual(req.usuario.id)
+  const m = await matriculaActual(req.estudianteUid)
   const texto = req.body.descargos?.trim()
   if (!texto) throw new ErrorHttp(400, 'Escribe tus descargos')
   const [r] = await pool.query(
@@ -228,8 +280,14 @@ router.post('/observador/:id/descargos', async (req, res) => {
 
 // ---------- Boletín ----------
 router.get('/boletin', async (req, res) => {
-  const m = await matriculaActual(req.usuario.id)
+  const m = await matriculaActual(req.estudianteUid)
   res.json(await boletin(m.id, entero(req.query.periodo, 'Periodo')))
 })
 
-export default router
+const rutas = Router()
+rutas.use(autenticar, permitir('estudiante'), (req, res, next) => {
+  req.estudianteUid = req.usuario.id
+  next()
+}, vistasEstudiante)
+
+export default rutas

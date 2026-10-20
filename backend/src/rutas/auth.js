@@ -6,9 +6,30 @@ import { requerido } from '../validar.js'
 
 const router = Router()
 
+// Bloqueo temporal contra quien prueba contraseñas: 5 fallos por documento o 20 por IP en 15 minutos
+const VENTANA = 15 * 60 * 1000
+const fallos = new Map()
+
+function recientes(clave) {
+  const ahora = Date.now()
+  const lista = (fallos.get(clave) ?? []).filter((t) => ahora - t < VENTANA)
+  if (lista.length) fallos.set(clave, lista)
+  else fallos.delete(clave)
+  return lista
+}
+
+function registrarFallo(...claves) {
+  for (const c of claves) fallos.set(c, [...recientes(c), Date.now()])
+}
+
 router.post('/login', async (req, res) => {
   requerido(req.body, ['documento', 'clave'])
   const { documento, clave, rol } = req.body
+  const porDocumento = `doc:${String(documento).trim()}`
+  const porIp = `ip:${req.ip}`
+  if (recientes(porDocumento).length >= 5 || recientes(porIp).length >= 20) {
+    throw new ErrorHttp(429, 'Demasiados intentos fallidos. Espera 15 minutos o comunícate con coordinación.')
+  }
 
   const [[usuario]] = await pool.query(
     'SELECT id, documento, clave_hash, rol, nombres, apellidos, activo FROM usuarios WHERE documento = ?',
@@ -16,8 +37,10 @@ router.post('/login', async (req, res) => {
   )
   // Mismo mensaje si no existe o la clave falla, para no revelar qué documentos existen
   if (!usuario || !(await bcrypt.compare(String(clave), usuario.clave_hash))) {
+    registrarFallo(porDocumento, porIp)
     throw new ErrorHttp(401, 'Documento o contraseña incorrectos')
   }
+  fallos.delete(porDocumento)
   if (!usuario.activo) throw new ErrorHttp(403, 'Usuario inactivo, comunícate con la institución')
   if (rol && rol.toLowerCase() !== usuario.rol) {
     throw new ErrorHttp(403, `Este usuario no tiene acceso como ${rol}`)

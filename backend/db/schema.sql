@@ -3,6 +3,15 @@
 
 SET NAMES utf8mb4;
 
+DROP TABLE IF EXISTS migraciones;
+DROP TABLE IF EXISTS acudientes;
+DROP TABLE IF EXISTS notificaciones;
+DROP TABLE IF EXISTS planes_mejoramiento;
+DROP TABLE IF EXISTS galeria_fotos;
+DROP TABLE IF EXISTS galerias;
+DROP TABLE IF EXISTS preinscripciones;
+DROP TABLE IF EXISTS documentos;
+DROP TABLE IF EXISTS publicaciones_facebook;
 DROP TABLE IF EXISTS mensajes_contacto;
 DROP TABLE IF EXISTS comentarios_entrega;
 DROP TABLE IF EXISTS mensajes;
@@ -29,7 +38,7 @@ CREATE TABLE usuarios (
   id            INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
   documento     VARCHAR(20)  NOT NULL UNIQUE,
   clave_hash    VARCHAR(100) NOT NULL,
-  rol           ENUM('estudiante', 'docente', 'administrador') NOT NULL,
+  rol           ENUM('estudiante', 'docente', 'administrador', 'acudiente') NOT NULL,
   nombres       VARCHAR(80)  NOT NULL,
   apellidos     VARCHAR(80)  NOT NULL,
   email         VARCHAR(120) NULL,
@@ -311,4 +320,128 @@ CREATE TABLE mensajes_contacto (
   mensaje    TEXT NOT NULL,
   leido      BOOLEAN NOT NULL DEFAULT FALSE,
   creado_en  TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Publicaciones públicas de Facebook que se muestran insertadas en el sitio
+-- (el colegio usa un perfil personal, que Facebook no deja mostrar como muro automático)
+CREATE TABLE publicaciones_facebook (
+  id           INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  url          VARCHAR(500) NOT NULL,
+  descripcion  VARCHAR(200) NULL,       -- nota interna para reconocerla en el panel
+  autor_id     INT UNSIGNED NULL,
+  creado_en    TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE KEY uq_facebook_url (url(255)),
+  CONSTRAINT fk_facebook_autor FOREIGN KEY (autor_id) REFERENCES usuarios (id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Cambios de esquema ya aplicados (npm run db:migrate)
+CREATE TABLE migraciones (
+  nombre      VARCHAR(150) PRIMARY KEY,
+  aplicada_en TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Padres de familia o acudientes con cuenta en la plataforma; un acudiente puede tener varios estudiantes a cargo
+CREATE TABLE acudientes (
+  acudiente_id   INT UNSIGNED NOT NULL,
+  estudiante_id  INT UNSIGNED NOT NULL,
+  parentesco     VARCHAR(40) NULL,
+  PRIMARY KEY (acudiente_id, estudiante_id),
+  CONSTRAINT fk_acudientes_usuario    FOREIGN KEY (acudiente_id)  REFERENCES usuarios (id) ON DELETE CASCADE,
+  CONSTRAINT fk_acudientes_estudiante FOREIGN KEY (estudiante_id) REFERENCES estudiantes (id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Avisos de la campanita: nueva tarea, calificación, falla, anotación en el observador…
+CREATE TABLE notificaciones (
+  id          INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  usuario_id  INT UNSIGNED NOT NULL,
+  tipo        VARCHAR(30)  NOT NULL,
+  titulo      VARCHAR(150) NOT NULL,
+  texto       VARCHAR(300) NULL,
+  vista       VARCHAR(30)  NULL,        -- sección de la plataforma que abre el aviso
+  leida_en    DATETIME     NULL,
+  creado_en   TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  INDEX idx_notificaciones_usuario (usuario_id, leida_en),
+  CONSTRAINT fk_notificaciones_usuario FOREIGN KEY (usuario_id) REFERENCES usuarios (id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Planes de mejoramiento (recuperación) para estudiantes que pierden una asignatura en un periodo
+CREATE TABLE planes_mejoramiento (
+  id                   INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  matricula_id         INT UNSIGNED NOT NULL,
+  carga_id             INT UNSIGNED NOT NULL,
+  periodo_id           INT UNSIGNED NOT NULL,
+  descripcion          TEXT NOT NULL,
+  fecha_limite         DATE NOT NULL,
+  estado               ENUM('pendiente', 'entregado', 'aprobado', 'no_aprobado') NOT NULL DEFAULT 'pendiente',
+  entrega_texto        TEXT NULL,
+  entrega_archivo      VARCHAR(100) NULL,
+  entrega_archivo_nombre VARCHAR(200) NULL,
+  entregado_en         DATETIME NULL,
+  nota_recuperacion    DECIMAL(2,1) NULL,
+  observacion_docente  TEXT NULL,
+  evaluado_en          DATETIME NULL,
+  creado_por           INT UNSIGNED NULL,
+  creado_en            TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE KEY uq_plan (matricula_id, carga_id, periodo_id),
+  CONSTRAINT fk_plan_matricula FOREIGN KEY (matricula_id) REFERENCES matriculas (id) ON DELETE CASCADE,
+  CONSTRAINT fk_plan_carga     FOREIGN KEY (carga_id)     REFERENCES cargas (id) ON DELETE CASCADE,
+  CONSTRAINT fk_plan_periodo   FOREIGN KEY (periodo_id)   REFERENCES periodos (id),
+  CONSTRAINT fk_plan_autor     FOREIGN KEY (creado_por)   REFERENCES usuarios (id) ON DELETE SET NULL,
+  CONSTRAINT chk_plan_nota CHECK (nota_recuperacion IS NULL OR nota_recuperacion BETWEEN 1.0 AND 5.0)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ---------- Sitio web: transparencia, admisiones y galería ----------
+
+-- Documentos públicos (Ley 1712 de transparencia): PEI, manual de convivencia, presupuesto, circulares…
+CREATE TABLE documentos (
+  id              INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  titulo          VARCHAR(200) NOT NULL,
+  descripcion     VARCHAR(300) NULL,
+  categoria       ENUM('institucional', 'planeacion', 'presupuesto', 'normatividad', 'calendario', 'informes') NOT NULL,
+  archivo         VARCHAR(100) NOT NULL,
+  archivo_nombre  VARCHAR(200) NOT NULL,
+  fecha           DATE NOT NULL,
+  publicado       BOOLEAN NOT NULL DEFAULT TRUE,
+  autor_id        INT UNSIGNED NULL,
+  creado_en       TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  INDEX idx_documentos_categoria (publicado, categoria, fecha),
+  CONSTRAINT fk_documentos_autor FOREIGN KEY (autor_id) REFERENCES usuarios (id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Preinscripciones de estudiantes nuevos desde el sitio
+CREATE TABLE preinscripciones (
+  id                    INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  estudiante_nombre     VARCHAR(150) NOT NULL,
+  estudiante_documento  VARCHAR(20)  NULL,
+  fecha_nacimiento      DATE NULL,
+  grado_aspira          VARCHAR(30)  NOT NULL,
+  sede                  VARCHAR(80)  NULL,
+  colegio_procedencia   VARCHAR(150) NULL,
+  acudiente_nombre      VARCHAR(150) NOT NULL,
+  acudiente_telefono    VARCHAR(30)  NOT NULL,
+  acudiente_correo      VARCHAR(120) NULL,
+  observaciones         TEXT NULL,
+  estado                ENUM('nueva', 'contactada', 'admitida', 'no_admitida') NOT NULL DEFAULT 'nueva',
+  acepta_datos_en       DATETIME NOT NULL,     -- aceptó la política de tratamiento de datos
+  creado_en             TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  INDEX idx_preinscripciones_estado (estado, creado_en)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Álbumes de fotos por evento
+CREATE TABLE galerias (
+  id           INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  titulo       VARCHAR(150) NOT NULL,
+  descripcion  VARCHAR(300) NULL,
+  fecha        DATE NOT NULL,
+  publicada    BOOLEAN NOT NULL DEFAULT TRUE,
+  creado_en    TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE galeria_fotos (
+  id          INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  galeria_id  INT UNSIGNED NOT NULL,
+  archivo     VARCHAR(100) NOT NULL,
+  orden       SMALLINT UNSIGNED NOT NULL DEFAULT 0,
+  INDEX idx_fotos_galeria (galeria_id, orden),
+  CONSTRAINT fk_fotos_galeria FOREIGN KEY (galeria_id) REFERENCES galerias (id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

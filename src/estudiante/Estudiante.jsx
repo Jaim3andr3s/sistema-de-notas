@@ -8,38 +8,52 @@ import Perfil from '../compartido/Perfil.jsx'
 import Actividades from './Actividades.jsx'
 import Clases from '../compartido/Clases.jsx'
 import Mensajes from '../compartido/Mensajes.jsx'
+import SemaforoPropio from '../compartido/Semaforo.jsx'
+import Calendario from '../compartido/Calendario.jsx'
+import Mejoramiento from './Mejoramiento.jsx'
+import Carnet from './Carnet.jsx'
+import { VistaEstudiante, useVistaEstudiante } from './contexto.js'
 import { api } from '../api.js'
 import { promedio, fecha, fechaHora, vencida, TIPOS_ACTIVIDAD } from '../util.js'
 
 const MENU = [
   { id: 'inicio', nombre: 'Inicio', icono: 'home' },
   { id: 'notas', nombre: 'Mis notas', icono: 'grading' },
+  { id: 'semaforo', nombre: 'Semáforo', icono: 'traffic' },
   { id: 'actividades', nombre: 'Actividades y tareas', icono: 'assignment' },
+  { id: 'mejoramiento', nombre: 'Mejoramiento', icono: 'trending_up' },
   { id: 'clases', nombre: 'Mis clases', icono: 'forum' },
   { id: 'mensajes', nombre: 'Mensajes', icono: 'chat' },
+  { id: 'calendario', nombre: 'Calendario', icono: 'event' },
   { id: 'horario', nombre: 'Horario', icono: 'calendar_month' },
   { id: 'asistencia', nombre: 'Asistencia', icono: 'event_available' },
   { id: 'observador', nombre: 'Observador', icono: 'fact_check' },
   { id: 'boletines', nombre: 'Boletines', icono: 'description' },
+  { id: 'carnet', nombre: 'Carnet y constancias', icono: 'badge' },
   { id: 'perfil', nombre: 'Mi perfil', icono: 'person' },
 ]
 
+// También las usa el panel del acudiente
+export const VISTAS = { inicio: Inicio, notas: Notas, semaforo: SemaforoPropio, calendario: Calendario, mejoramiento: Mejoramiento, carnet: Carnet, actividades: Actividades, clases: Clases, mensajes: Mensajes, horario: Horario, asistencia: Asistencia, observador: Observador, boletines: Boletines, perfil: MiPerfil }
+
 export default function Estudiante({ usuario, onSalir }) {
   const [vista, setVista] = useState('inicio')
-  const VISTAS = { inicio: Inicio, notas: Notas, actividades: Actividades, clases: Clases, mensajes: Mensajes, horario: Horario, asistencia: Asistencia, observador: Observador, boletines: Boletines, perfil: MiPerfil }
   const Vista = VISTAS[vista]
   return (
-    <Layout menu={MENU} vista={vista} onVista={setVista} usuario={usuario} onSalir={onSalir}>
-      <Vista usuario={usuario} ir={setVista} />
-    </Layout>
+    <VistaEstudiante.Provider value={{ base: '/estudiante', soloLectura: false, menu: MENU }}>
+      <Layout menu={MENU} vista={vista} onVista={setVista} usuario={usuario} onSalir={onSalir}>
+        <Vista usuario={usuario} ir={setVista} />
+      </Layout>
+    </VistaEstudiante.Provider>
   )
 }
 
 function Inicio({ usuario, ir }) {
-  const perfil = useApi('/estudiante/perfil')
-  const notas = useApi('/estudiante/notas')
-  const actividades = useApi('/estudiante/actividades')
-  const anuncios = useApi('/estudiante/anuncios')
+  const { base, menu, soloLectura } = useVistaEstudiante()
+  const perfil = useApi(`${base}/perfil`)
+  const notas = useApi(`${base}/notas`)
+  const actividades = useApi(`${base}/actividades`)
+  const anuncios = useApi(`${base}/anuncios`)
 
   const n = notas.datos
   // Último periodo que ya tiene alguna nota
@@ -56,6 +70,7 @@ function Inicio({ usuario, ir }) {
       <section className="bienvenida-card">
         <div>
           <p className="saludo">¡Hola, <span>{usuario.nombres.split(' ')[0]}</span>!</p>
+          {soloLectura && perfil.datos && <p>Estás viendo a <strong>{perfil.datos.nombres} {perfil.datos.apellidos}</strong></p>}
           {m && (
             <>
               <p>Grado <strong>{m.grado}</strong> · Jornada {m.jornada} · Año lectivo {m.anio}</p>
@@ -90,7 +105,7 @@ function Inicio({ usuario, ir }) {
       </section>
 
       <Caja titulo="Accesos rápidos">
-        <Accesos items={MENU.filter((m) => !['inicio', 'perfil'].includes(m.id))} onIr={ir} />
+        <Accesos items={menu.filter((m) => !['inicio', 'perfil'].includes(m.id))} onIr={ir} />
       </Caja>
 
       <div className="columnas">
@@ -131,13 +146,14 @@ function Inicio({ usuario, ir }) {
         </Caja>
       </div>
 
-      {fallas > 0 && <p className="texto-suave">Llevas {fallas} fallas en el año. <button className="enlace" onClick={() => ir('asistencia')}>Ver detalle</button></p>}
+      {fallas > 0 && <p className="texto-suave">{soloLectura ? 'Lleva' : 'Llevas'} {fallas} fallas en el año. <button className="enlace" onClick={() => ir('asistencia')}>Ver detalle</button></p>}
     </>
   )
 }
 
 function Notas() {
-  const consulta = useApi('/estudiante/notas')
+  const { base } = useVistaEstudiante()
+  const consulta = useApi(`${base}/notas`)
   return (
     <ConDatos consulta={consulta}>
       {({ anio, grado, periodos, asignaturas }) => (
@@ -188,7 +204,8 @@ function Notas() {
 }
 
 function Horario() {
-  const consulta = useApi('/estudiante/horario')
+  const { base } = useVistaEstudiante()
+  const consulta = useApi(`${base}/horario`)
   return (
     <ConDatos consulta={consulta}>
       {({ grado, bloques }) => (
@@ -201,8 +218,9 @@ function Horario() {
 }
 
 function Asistencia() {
-  const notas = useApi('/estudiante/notas')
-  const detalle = useApi('/estudiante/inasistencias')
+  const { base } = useVistaEstudiante()
+  const notas = useApi(`${base}/notas`)
+  const detalle = useApi(`${base}/inasistencias`)
   return (
     <div className="columnas">
       <Caja titulo="Fallas por asignatura">
@@ -244,14 +262,15 @@ function Asistencia() {
 }
 
 function Observador() {
-  const consulta = useApi('/estudiante/observador')
+  const { base, soloLectura } = useVistaEstudiante()
+  const consulta = useApi(`${base}/observador`)
   const [escribiendo, setEscribiendo] = useState(null)
   const [texto, setTexto] = useState('')
   const [error, setError] = useState('')
 
   async function enviar(id) {
     try {
-      await api(`/estudiante/observador/${id}/descargos`, { method: 'POST', body: { descargos: texto } })
+      await api(`${base}/observador/${id}/descargos`, { method: 'POST', body: { descargos: texto } })
       setEscribiendo(null)
       setTexto('')
       consulta.recargar()
@@ -261,14 +280,18 @@ function Observador() {
   }
 
   return (
-    <Caja titulo="Mi observador">
-      <p className="texto-suave">Aquí ves las anotaciones que tus docentes registran. Puedes dejar tus descargos (tu versión) una sola vez por anotación.</p>
+    <Caja titulo={soloLectura ? 'Observador' : 'Mi observador'}>
+      <p className="texto-suave">
+        {soloLectura
+          ? 'Anotaciones académicas y de convivencia registradas por los docentes. Los descargos los escribe el estudiante desde su cuenta.'
+          : 'Aquí ves las anotaciones que tus docentes registran. Puedes dejar tus descargos (tu versión) una sola vez por anotación.'}
+      </p>
       <ConDatos consulta={consulta}>
         {(lista) => (
           <ListaObservaciones
             observaciones={lista}
             acciones={(o) =>
-              !o.descargos && o.tipo !== 'positiva' && (
+              !soloLectura && !o.descargos && o.tipo !== 'positiva' && (
                 escribiendo === o.id ? (
                   <div className="descargos-form">
                     <textarea rows={3} placeholder="Escribe tu versión de los hechos…" value={texto} onChange={(e) => setTexto(e.target.value)} />
@@ -291,9 +314,10 @@ function Observador() {
 }
 
 function Boletines() {
-  const notas = useApi('/estudiante/notas')
+  const { base } = useVistaEstudiante()
+  const notas = useApi(`${base}/notas`)
   const [periodo, setPeriodo] = useState(null)
-  const boletin = useApi(periodo ? `/estudiante/boletin?periodo=${periodo}` : null)
+  const boletin = useApi(periodo ? `${base}/boletin?periodo=${periodo}` : null)
 
   return (
     <>
@@ -329,7 +353,8 @@ function Boletines() {
 }
 
 function MiPerfil({ usuario }) {
-  const perfil = useApi('/estudiante/perfil')
+  const { base } = useVistaEstudiante()
+  const perfil = useApi(`${base}/perfil`)
   const p = perfil.datos
   return (
     <Perfil

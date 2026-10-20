@@ -10,6 +10,9 @@ import rutasAdmin from './rutas/admin.js'
 import rutasReportes from './rutas/reportes.js'
 import rutasPublico from './rutas/publico.js'
 import rutasInteraccion from './rutas/interaccion.js'
+import rutasAcudiente from './rutas/acudiente.js'
+import rutasNotificaciones from './rutas/notificaciones.js'
+import rutasCalendario from './rutas/calendario.js'
 import { autenticar } from './auth.js'
 import { CARPETA_ARCHIVOS } from './archivos.js'
 
@@ -19,6 +22,13 @@ if (!process.env.JWT_SECRET) {
 }
 
 const app = express()
+// Detrás de Nginx u otro proxy, para que req.ip sea la IP real del visitante
+if (process.env.TRUST_PROXY) app.set('trust proxy', Number(process.env.TRUST_PROXY) || 1)
+app.disable('x-powered-by')
+app.use((req, res, next) => {
+  res.set({ 'X-Content-Type-Options': 'nosniff', 'X-Frame-Options': 'SAMEORIGIN', 'Referrer-Policy': 'strict-origin-when-cross-origin' })
+  next()
+})
 app.use(cors({ origin: process.env.CORS_ORIGIN?.split(',') ?? 'http://localhost:5173' }))
 app.use(express.json({ limit: '1mb' }))
 
@@ -34,6 +44,9 @@ app.use('/api/admin', rutasAdmin)
 app.use('/api/reportes', rutasReportes)
 app.use('/api/publico', rutasPublico)
 app.use('/api/interaccion', rutasInteraccion)
+app.use('/api/acudiente', rutasAcudiente)
+app.use('/api/notificaciones', rutasNotificaciones)
+app.use('/api/calendario', rutasCalendario)
 
 // Adjuntos de actividades y entregas (nombres aleatorios generados al subir)
 app.get('/api/archivos/:nombre', autenticar, (req, res) => {

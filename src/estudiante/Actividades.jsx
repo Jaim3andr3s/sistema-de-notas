@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useVistaEstudiante } from './contexto.js'
 import { api, descargar } from '../api.js'
 import { Caja, ConDatos, Nota, Icono, Modal, Aviso, Vacio, Campo, useApi } from '../componentes/ui.jsx'
 import { TIPOS_ACTIVIDAD, fechaHora, vencida } from '../util.js'
@@ -20,7 +21,8 @@ function estadoActividad(a) {
 }
 
 export default function Actividades() {
-  const consulta = useApi('/estudiante/actividades')
+  const { base } = useVistaEstudiante()
+  const consulta = useApi(`${base}/actividades`)
   const [filtro, setFiltro] = useState('pendientes')
   const [asignatura, setAsignatura] = useState('')
   const [abierta, setAbierta] = useState(null)
@@ -78,7 +80,8 @@ export default function Actividades() {
 }
 
 function DetalleActividad({ id, onCerrar }) {
-  const consulta = useApi(`/estudiante/actividades/${id}`)
+  const { base, soloLectura } = useVistaEstudiante()
+  const consulta = useApi(`${base}/actividades/${id}`)
   return (
     <Modal titulo={consulta.datos?.titulo ?? 'Actividad'} onCerrar={onCerrar} ancho={680}>
       <ConDatos consulta={consulta}>
@@ -98,17 +101,38 @@ function DetalleActividad({ id, onCerrar }) {
               </button>
             )}
             <hr />
-            {a.tipo === 'cuestionario' ? (
+            {soloLectura ? (
+              <ResumenEntrega actividad={a} />
+            ) : a.tipo === 'cuestionario' ? (
               <Cuestionario actividad={a} onListo={consulta.recargar} />
             ) : (
               <Entrega actividad={a} onListo={consulta.recargar} />
             )}
-            <hr />
-            <ComentariosTarea actividadId={a.id} />
+            {!soloLectura && (
+              <>
+                <hr />
+                <ComentariosTarea actividadId={a.id} />
+              </>
+            )}
           </div>
         )}
       </ConDatos>
     </Modal>
+  )
+}
+
+// Lo que ve el acudiente: si entregó, cuándo y con qué nota, sin poder entregar
+function ResumenEntrega({ actividad: a }) {
+  const e = a.entrega
+  return (
+    <>
+      <h3>Entrega del estudiante</h3>
+      {!a.entrega_en_linea && <Aviso tipo="info">Esta actividad se realiza de forma presencial.</Aviso>}
+      {a.entrega_en_linea && (e?.entregado_en
+        ? <p className="texto-suave">Entregada el {fechaHora(e.entregado_en)}</p>
+        : <Aviso tipo={vencida(a.fecha_entrega) ? 'error' : 'info'}>{vencida(a.fecha_entrega) ? 'No la entregó y la fecha ya pasó.' : 'Todavía no la ha entregado.'}</Aviso>)}
+      <Calificacion entrega={e} />
+    </>
   )
 }
 
@@ -123,6 +147,7 @@ function Calificacion({ entrega }) {
 }
 
 function Entrega({ actividad: a, onListo }) {
+  const { base } = useVistaEstudiante()
   const [texto, setTexto] = useState(a.entrega?.texto ?? '')
   const [archivo, setArchivo] = useState(null)
   const [msg, setMsg] = useState({ tipo: '', texto: '' })
@@ -145,7 +170,7 @@ function Entrega({ actividad: a, onListo }) {
     if (archivo) form.append('archivo', archivo)
     setEnviando(true)
     try {
-      await api(`/estudiante/actividades/${a.id}/entrega`, { method: 'POST', body: form })
+      await api(`${base}/actividades/${a.id}/entrega`, { method: 'POST', body: form })
       setMsg({ tipo: 'exito', texto: '¡Entrega enviada!' })
       setArchivo(null)
       onListo()
@@ -192,6 +217,7 @@ function Entrega({ actividad: a, onListo }) {
 }
 
 function Cuestionario({ actividad: a, onListo }) {
+  const { base } = useVistaEstudiante()
   const [respuestas, setRespuestas] = useState(() => a.preguntas.map(() => null))
   const [error, setError] = useState('')
   const [enviando, setEnviando] = useState(false)
@@ -205,7 +231,7 @@ function Cuestionario({ actividad: a, onListo }) {
     form.append('respuestas', JSON.stringify(respuestas))
     setEnviando(true)
     try {
-      await api(`/estudiante/actividades/${a.id}/entrega`, { method: 'POST', body: form })
+      await api(`${base}/actividades/${a.id}/entrega`, { method: 'POST', body: form })
       onListo()
     } catch (err) {
       setError(err.message)

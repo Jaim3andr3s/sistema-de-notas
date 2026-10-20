@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Icono } from './ui.jsx'
 import { api } from '../api.js'
+import Campanita from './Campanita.jsx'
 import { ROLES, nombreCompleto } from '../util.js'
 
 // Estructura común: menú lateral + barra superior + contenido
@@ -38,6 +39,7 @@ export default function Layout({ menu, vista, onVista, usuario, onSalir, childre
             </button>
           ))}
         </nav>
+        <BotonInstalar />
         <button className="menu-item salir" onClick={onSalir}>
           <Icono nombre="logout" />
           Cerrar sesión
@@ -51,6 +53,7 @@ export default function Layout({ menu, vista, onVista, usuario, onSalir, childre
             <Icono nombre="menu" />
           </button>
           <h1>{actual?.nombre}</h1>
+          <Campanita menu={menu} onIr={ir} />
           <div className="barra-usuario">
             <div className="barra-datos">
               <strong>{nombreCompleto(usuario)}</strong>
@@ -81,4 +84,24 @@ function useNoLeidos(vista) {
     }
   }, [consultar])
   return total
+}
+
+// Aparece solo cuando el navegador permite instalar la plataforma como app (Android, Chrome, Edge)
+function BotonInstalar() {
+  const [aviso, setAviso] = useState(null)
+  useEffect(() => {
+    const guardar = (e) => {
+      e.preventDefault()
+      setAviso(e)
+    }
+    window.addEventListener('beforeinstallprompt', guardar)
+    return () => window.removeEventListener('beforeinstallprompt', guardar)
+  }, [])
+  if (!aviso) return null
+  return (
+    <button className="menu-item instalar" onClick={async () => { aviso.prompt(); await aviso.userChoice; setAviso(null) }}>
+      <Icono nombre="install_mobile" />
+      Instalar la app
+    </button>
+  )
 }
