@@ -312,6 +312,17 @@ await insertar('mensajes', {
   texto: 'Buenas noches profe, soy la mamá de Estudiante Demo. Quisiera saber cómo va en Química este periodo.',
 })
 
+// Notificaciones de ejemplo para el estudiante y el acudiente demo
+for (const destino of [estDemo, acudienteDemo]) {
+  for (const [tipo, titulo, texto, vista, creado_en] of [
+    ['actividad', 'Nueva actividad en Química', 'Informe de laboratorio: reacciones químicas · entrega 24 oct', 'actividades', '2026-10-05 08:00:00'],
+    ['calificacion', 'Nueva calificación en Matemáticas', 'Taller de funciones trigonométricas', 'actividades', '2026-10-12 10:00:00'],
+    ['falla', 'Falla en Inglés', 'Estudiante no asistió a Inglés el 15 oct', 'asistencia', '2026-10-15 09:20:00'],
+  ]) {
+    await insertar('notificaciones', { usuario_id: destino, tipo, titulo, texto, vista, creado_en })
+  }
+}
+
 const [[informe]] = await conn.query("SELECT id FROM actividades WHERE titulo LIKE 'Informe de laboratorio%'")
 await insertar('comentarios_entrega', {
   actividad_id: informe.id, matricula_id: matriculas[g10a][0], autor_id: estDemo, creado_en: '2026-10-17 10:15:00',

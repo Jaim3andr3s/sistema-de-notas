@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Icono } from './ui.jsx'
 import { api } from '../api.js'
+import Campanita from './Campanita.jsx'
 import { ROLES, nombreCompleto } from '../util.js'
 
 // Estructura común: menú lateral + barra superior + contenido
@@ -51,6 +52,7 @@ export default function Layout({ menu, vista, onVista, usuario, onSalir, childre
             <Icono nombre="menu" />
           </button>
           <h1>{actual?.nombre}</h1>
+          <Campanita menu={menu} onIr={ir} />
           <div className="barra-usuario">
             <div className="barra-datos">
               <strong>{nombreCompleto(usuario)}</strong>

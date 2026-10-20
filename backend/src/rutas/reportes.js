@@ -5,6 +5,7 @@ import { autenticar, permitir, ErrorHttp } from '../auth.js'
 import { gradoPermitido, matriculaPermitida } from '../acceso.js'
 import { consolidado, boletin } from '../academico.js'
 import { entero, requerido } from '../validar.js'
+import { notificar, familias } from '../notificaciones.js'
 
 const router = Router()
 router.use(autenticar, permitir('docente', 'administrador'))
@@ -89,7 +90,14 @@ function leerObservacion(body) {
 
 router.post('/observador/:matricula', async (req, res) => {
   const m = await matriculaPermitida(req.usuario, entero(req.params.matricula, 'Matrícula'))
-  const [r] = await pool.query('INSERT INTO observaciones SET ?', [{ ...leerObservacion(req.body), matricula_id: m.id, autor_id: req.usuario.id }])
+  const datos = leerObservacion(req.body)
+  const [r] = await pool.query('INSERT INTO observaciones SET ?', [{ ...datos, matricula_id: m.id, autor_id: req.usuario.id }])
+  notificar(await familias([m.id]), {
+    tipo: 'observador',
+    titulo: datos.tipo === 'positiva' ? 'Nuevo reconocimiento en el observador' : 'Nueva anotación en el observador',
+    texto: datos.descripcion,
+    vista: 'observador',
+  })
   res.status(201).json({ id: r.insertId })
 })
 

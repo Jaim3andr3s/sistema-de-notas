@@ -4,6 +4,7 @@ import { pool, transaccion } from '../db.js'
 import { autenticar, permitir, ErrorHttp } from '../auth.js'
 import { entero, requerido } from '../validar.js'
 import { subirImagen } from '../archivos.js'
+import { notificar, familiasDeGrado } from '../notificaciones.js'
 
 const router = Router()
 router.use(autenticar, permitir('administrador'))
@@ -349,6 +350,17 @@ router.post('/anuncios', async (req, res) => {
     // Solo los anuncios para toda la institución pueden mostrarse en el sitio web
     [titulo, texto, fecha, grado_id || null, !grado_id && Boolean(publico), req.usuario.id]
   )
+  // Anuncio de un grado: a sus familias y docentes; general: a toda la comunidad
+  const [destinos] = grado_id
+    ? await pool.query(
+        `SELECT docente_id AS id FROM cargas WHERE grado_id = ? AND docente_id IS NOT NULL
+         UNION SELECT director_id FROM grados WHERE id = ? AND director_id IS NOT NULL`,
+        [grado_id, grado_id]
+      )
+    : await pool.query("SELECT id FROM usuarios WHERE activo AND rol <> 'administrador'")
+  notificar([...destinos.map((d) => d.id), ...(grado_id ? await familiasDeGrado(grado_id) : [])], {
+    tipo: 'anuncio', titulo: `Anuncio: ${titulo}`, texto, vista: 'inicio',
+  })
   res.status(201).json({ id: r.insertId })
 })
 

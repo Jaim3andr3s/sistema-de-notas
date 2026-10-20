@@ -11,6 +11,7 @@ import rutasReportes from './rutas/reportes.js'
 import rutasPublico from './rutas/publico.js'
 import rutasInteraccion from './rutas/interaccion.js'
 import rutasAcudiente from './rutas/acudiente.js'
+import rutasNotificaciones from './rutas/notificaciones.js'
 import { autenticar } from './auth.js'
 import { CARPETA_ARCHIVOS } from './archivos.js'
 
@@ -43,6 +44,7 @@ app.use('/api/reportes', rutasReportes)
 app.use('/api/publico', rutasPublico)
 app.use('/api/interaccion', rutasInteraccion)
 app.use('/api/acudiente', rutasAcudiente)
+app.use('/api/notificaciones', rutasNotificaciones)
 
 // Adjuntos de actividades y entregas (nombres aleatorios generados al subir)
 app.get('/api/archivos/:nombre', autenticar, (req, res) => {

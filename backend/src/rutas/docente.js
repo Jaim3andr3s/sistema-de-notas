@@ -5,6 +5,7 @@ import { cargaPermitida, periodoDelAnio, exigirPeriodoAbierto } from '../acceso.
 import { ponderado } from '../academico.js'
 import { subir } from '../archivos.js'
 import { entero, nota as validarNota, requerido } from '../validar.js'
+import { notificar, familias, familiasDeGrado, fechaCorta } from '../notificaciones.js'
 
 const router = Router()
 router.use(autenticar, permitir('docente', 'administrador'))
@@ -170,6 +171,12 @@ router.post('/cargas/:id/actividades', subir.single('archivo'), async (req, res)
     archivo_nombre: req.file?.originalname ?? null,
     creado_por: req.usuario.id,
   }])
+  notificar(await familiasDeGrado(carga.grado_id), {
+    tipo: 'actividad',
+    titulo: `Nueva actividad en ${carga.asignatura}`,
+    texto: `${datos.titulo}${datos.fecha_entrega ? ` · entrega ${fechaCorta(datos.fecha_entrega)}` : ''}`,
+    vista: 'actividades',
+  })
   res.status(201).json({ id: r.insertId })
 })
 
@@ -227,6 +234,8 @@ router.put('/actividades/:id/calificaciones', async (req, res) => {
     if (!validos.has(matriculaId)) throw new ErrorHttp(400, `La matrícula ${matriculaId} no pertenece a ${carga.grado}`)
     return { matriculaId, nota: validarNota(c.nota), retro: c.retroalimentacion?.trim() || null }
   })
+  const [previas] = await pool.query('SELECT matricula_id, nota FROM entregas WHERE actividad_id = ?', [a.id])
+  const notaPrevia = new Map(previas.map((p) => [p.matricula_id, p.nota]))
 
   await transaccion(async (conn) => {
     for (const f of filas) {
@@ -237,6 +246,11 @@ router.put('/actividades/:id/calificaciones', async (req, res) => {
         [a.id, f.matriculaId, f.nota, f.retro, f.nota]
       )
     }
+  })
+  // Solo se avisa a quien recibió una nota nueva o distinta
+  const calificados = filas.filter((f) => f.nota != null && f.nota !== notaPrevia.get(f.matriculaId)).map((f) => f.matriculaId)
+  notificar(await familias(calificados), {
+    tipo: 'calificacion', titulo: `Nueva calificación en ${carga.asignatura}`, texto: a.titulo, vista: 'actividades',
   })
   res.json({ ok: true })
 })
@@ -278,6 +292,8 @@ router.put('/cargas/:id/asistencia', async (req, res) => {
     if (!['presente', 'falla', 'retardo'].includes(r.estado)) throw new ErrorHttp(400, 'Estado de asistencia inválido')
     return { matriculaId, estado: r.estado, justificada: Boolean(r.justificada), observacion: r.observacion?.trim() || null }
   })
+  const [previas] = await pool.query("SELECT matricula_id FROM inasistencias WHERE carga_id = ? AND fecha = ? AND tipo = 'falla'", [carga.id, fecha])
+  const yaTenianFalla = new Set(previas.map((p) => p.matricula_id))
 
   await transaccion(async (conn) => {
     for (const f of filas) {
@@ -292,6 +308,16 @@ router.put('/cargas/:id/asistencia', async (req, res) => {
       }
     }
   })
+  // La familia se entera el mismo día de cada falla nueva sin justificar
+  for (const f of filas.filter((x) => x.estado === 'falla' && !x.justificada && !yaTenianFalla.has(x.matriculaId))) {
+    const [[e]] = await pool.query(
+      'SELECT u.nombres FROM matriculas m JOIN estudiantes s ON s.id = m.estudiante_id JOIN usuarios u ON u.id = s.usuario_id WHERE m.id = ?',
+      [f.matriculaId]
+    )
+    notificar(await familias([f.matriculaId]), {
+      tipo: 'falla', titulo: `Falla en ${carga.asignatura}`, texto: `${e.nombres} no asistió a ${carga.asignatura} el ${fechaCorta(fecha)}`, vista: 'asistencia',
+    })
+  }
   res.json({ ok: true })
 })
 

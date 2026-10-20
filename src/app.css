@@ -465,3 +465,32 @@
 .selector-hijo { display: flex; align-items: center; gap: 10px; padding: 12px 16px; border-radius: 12px; background: var(--amarillo-suave); color: #6b5300; font-size: 0.92rem; }
 .selector-hijo label { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .selector-hijo select { padding: 6px 10px; border: 1.5px solid #e8d8a0; border-radius: 8px; background: var(--blanco); font: inherit; font-weight: 700; color: var(--negro); }
+
+/* ---------- Campanita de notificaciones ---------- */
+.campanita { position: relative; }
+.btn-campanita {
+  position: relative; width: 40px; height: 40px; display: grid; place-items: center;
+  border: 0; border-radius: 50%; background: transparent; color: var(--gris); cursor: pointer;
+}
+.btn-campanita:hover, .btn-campanita[aria-expanded='true'] { background: var(--fondo); color: var(--azul); }
+.btn-campanita .insignia { position: absolute; top: 2px; right: 0; margin: 0; padding: 0 5px; min-width: 18px; font-size: 0.66rem; line-height: 18px; }
+.panel-avisos {
+  position: absolute; right: -60px; top: calc(100% + 8px); z-index: 40; width: min(380px, 92vw);
+  background: var(--blanco); border: 1px solid var(--borde); border-radius: 14px; box-shadow: 0 18px 40px rgba(15, 30, 60, 0.16); overflow: hidden;
+}
+.panel-avisos-titulo { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 12px 14px; border-bottom: 1px solid var(--borde); }
+.panel-avisos-vacio { padding: 18px 14px; margin: 0; }
+.panel-avisos ul { list-style: none; margin: 0; padding: 4px; max-height: 420px; overflow-y: auto; }
+.panel-avisos li button { width: 100%; display: flex; gap: 10px; padding: 10px; border: 0; border-radius: 10px; background: transparent; font: inherit; text-align: left; cursor: pointer; }
+.panel-avisos li button:hover { background: var(--fondo); }
+.panel-avisos li button.nueva { background: #f4f8fe; }
+.panel-avisos li button.nueva strong::before { content: ''; display: inline-block; width: 7px; height: 7px; margin-right: 6px; border-radius: 50%; background: var(--azul-claro); vertical-align: middle; }
+.panel-avisos strong { display: block; font-size: 0.86rem; color: var(--negro); }
+.panel-avisos small { display: block; margin-top: 2px; font-size: 0.8rem; color: #4b5563; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.panel-avisos time { display: block; margin-top: 3px; font-size: 0.72rem; color: var(--gris); }
+.aviso-icono { width: 34px; height: 34px; flex-shrink: 0; display: grid; place-items: center; border-radius: 10px; background: var(--azul-suave); color: var(--azul); }
+.aviso-icono .material-icons { font-size: 18px; }
+.aviso-icono.falla { background: var(--rojo-suave); color: var(--rojo); }
+.aviso-icono.calificacion, .aviso-icono.mejoramiento { background: var(--verde-suave); color: var(--verde); }
+.aviso-icono.anuncio, .aviso-icono.observador { background: var(--amarillo-suave); color: #9a7700; }
+@media (max-width: 760px) { .panel-avisos { position: fixed; left: 8px; right: 8px; top: 64px; width: auto; } }

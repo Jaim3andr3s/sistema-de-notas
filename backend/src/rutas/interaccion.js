@@ -6,6 +6,7 @@ import { autenticar, ErrorHttp } from '../auth.js'
 import { matriculaActual, cargaPermitida } from '../acceso.js'
 import { subir } from '../archivos.js'
 import { entero } from '../validar.js'
+import { notificar } from '../notificaciones.js'
 
 const router = Router()
 router.use(autenticar)
@@ -106,6 +107,16 @@ router.post('/cursos/:id/publicaciones', subir.single('archivo'), async (req, re
     archivo_nombre: req.file?.originalname ?? null,
     fijada,
   }])
+  // Lo que publica el docente les llega a los estudiantes del grado
+  if (puedeModerar(req.usuario, curso)) {
+    const [estudiantes] = await pool.query(
+      "SELECT e.usuario_id AS id FROM matriculas m JOIN estudiantes e ON e.id = m.estudiante_id WHERE m.grado_id = ? AND m.estado = 'activa'",
+      [curso.grado_id]
+    )
+    notificar(estudiantes.map((e) => e.id), {
+      tipo: 'muro', titulo: `Nueva publicación en ${curso.asignatura}`, texto: req.body.texto.trim().slice(0, 140), vista: 'clases',
+    })
+  }
   res.status(201).json({ id: r.insertId })
 })
 
@@ -322,9 +333,25 @@ router.get('/actividades/:id/comentarios', async (req, res) => {
 
 router.post('/actividades/:id/comentarios', async (req, res) => {
   const { a, matriculaId } = await hiloPermitido(req.usuario, entero(req.params.id, 'Actividad'), req.body.matricula_id)
+  const texto = textoValido(req.body.texto, 2000)
   const [r] = await pool.query('INSERT INTO comentarios_entrega SET ?', [{
-    actividad_id: a.id, matricula_id: matriculaId, autor_id: req.usuario.id, texto: textoValido(req.body.texto, 2000),
+    actividad_id: a.id, matricula_id: matriculaId, autor_id: req.usuario.id, texto,
   }])
+  // Avisa a la otra parte de la conversación
+  const [[info]] = await pool.query(
+    `SELECT x.titulo, c.docente_id, e.usuario_id AS estudiante_id, CONCAT(u.nombres, ' ', u.apellidos) AS estudiante
+       FROM actividades x JOIN cargas c ON c.id = x.carga_id
+       JOIN matriculas m ON m.id = ? JOIN estudiantes e ON e.id = m.estudiante_id JOIN usuarios u ON u.id = e.usuario_id
+      WHERE x.id = ?`,
+    [matriculaId, a.id]
+  )
+  const esEstudiante = req.usuario.rol === 'estudiante'
+  notificar([esEstudiante ? info.docente_id : info.estudiante_id], {
+    tipo: 'comentario',
+    titulo: esEstudiante ? `${info.estudiante} comentó una actividad` : 'Tu docente respondió tu comentario',
+    texto: `${info.titulo}: ${texto.slice(0, 120)}`,
+    vista: 'actividades',
+  })
   res.status(201).json({ id: r.insertId })
 })
 
