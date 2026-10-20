@@ -1,10 +1,12 @@
 import { useEffect, useState } from 'react'
 import Layout from '../componentes/Layout.jsx'
-import { Caja, ConDatos, Nota, Etiqueta, Escala, Icono, Aviso, Vacio, useApi } from '../componentes/ui.jsx'
+import { Accesos, Caja, ConDatos, Nota, Etiqueta, Escala, Icono, Aviso, Vacio, useApi } from '../componentes/ui.jsx'
 import { Consolidado, Boletines } from '../compartido/Reportes.jsx'
 import Observador from '../compartido/Observador.jsx'
 import Perfil from '../compartido/Perfil.jsx'
 import ActividadesDocente from './Actividades.jsx'
+import Clases from '../compartido/Clases.jsx'
+import Mensajes from '../compartido/Mensajes.jsx'
 import { api } from '../api.js'
 import { hoy, promedio } from '../util.js'
 
@@ -12,6 +14,8 @@ const MENU = [
   { id: 'inicio', nombre: 'Inicio', icono: 'home' },
   { id: 'notas', nombre: 'Planilla de notas', icono: 'grading' },
   { id: 'actividades', nombre: 'Actividades', icono: 'assignment' },
+  { id: 'clases', nombre: 'Mis clases', icono: 'forum' },
+  { id: 'mensajes', nombre: 'Mensajes', icono: 'chat' },
   { id: 'asistencia', nombre: 'Asistencia', icono: 'how_to_reg' },
   { id: 'observador', nombre: 'Observador', icono: 'fact_check' },
   { id: 'consolidados', nombre: 'Consolidados', icono: 'table_chart' },
@@ -28,6 +32,8 @@ export default function Docente({ usuario, onSalir }) {
   if (vista === 'inicio') contenido = <Inicio usuario={usuario} seleccion={seleccion} ir={setVista} />
   if (vista === 'notas') contenido = <Planilla seleccion={seleccion} />
   if (vista === 'actividades') contenido = <ActividadesDocente seleccion={seleccion} Selector={SelectorCargaPeriodo} />
+  if (vista === 'clases') contenido = <Clases usuario={usuario} />
+  if (vista === 'mensajes') contenido = <Mensajes usuario={usuario} />
   if (vista === 'asistencia') contenido = <Asistencia seleccion={seleccion} />
   if (vista === 'observador') contenido = <Observador usuario={usuario} />
   if (vista === 'consolidados') contenido = <Consolidado />
@@ -99,7 +105,7 @@ function Inicio({ usuario, seleccion, ir }) {
     <>
       <section className="bienvenida-card">
         <div>
-          <p className="saludo">¡Hola, {usuario.nombres.split(' ')[0]}!</p>
+          <p className="saludo">¡Hola, <span>{usuario.nombres.split(' ')[0]}</span>!</p>
           <p>Bienvenido(a) al Sistema de Notas de la IEMM.</p>
           {cargas.datos?.direccion.length > 0 && (
             <p>Director(a) de grupo: <strong>{cargas.datos.direccion.map((g) => g.nombre).join(', ')}</strong></p>
@@ -107,6 +113,10 @@ function Inicio({ usuario, seleccion, ir }) {
         </div>
         <img src="/escudo.jpeg" alt="" />
       </section>
+
+      <Caja titulo="Accesos rápidos">
+        <Accesos items={MENU.filter((m) => !['inicio', 'perfil'].includes(m.id))} onIr={ir} />
+      </Caja>
 
       <Caja titulo="Mis asignaturas">
         <ConDatos consulta={cargas}>

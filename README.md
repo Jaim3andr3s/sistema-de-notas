@@ -10,9 +10,17 @@ Plataforma académica de la Institución Educativa Máximo Mercado: notas, activ
 
 | Rol | Puede |
 |---|---|
-| Estudiante | Ver notas por periodo y acumulado, entregar tareas (texto o archivo), presentar cuestionarios con calificación automática, ver horario, asistencia, su observador (y escribir descargos) e imprimir boletines |
-| Docente | Planilla de notas por periodo (con nota sugerida a partir de las actividades), crear actividades/tareas/cuestionarios y calificarlas, tomar asistencia, registrar en el observador, ver consolidados e imprimir boletines de sus grados |
-| Administrador | Estadísticas, usuarios, grados, asignaturas y carga académica, abrir/cerrar periodos, anuncios, consolidados, boletines y observador de toda la institución |
+| Estudiante | Ver notas por periodo y acumulado, entregar tareas (texto o archivo), presentar cuestionarios con calificación automática, ver horario, asistencia, su observador (y escribir descargos) e imprimir boletines. Participar en el muro de cada asignatura, escribirles mensajes privados a sus docentes y comentar en privado cada tarea |
+| Docente | Planilla de notas por periodo (con nota sugerida a partir de las actividades), crear actividades/tareas/cuestionarios y calificarlas, tomar asistencia, registrar en el observador, ver consolidados e imprimir boletines de sus grados. Publicar avisos y material en el muro de sus clases, responder mensajes privados y los comentarios de cada tarea |
+| Administrador | Estadísticas, usuarios, grados, asignaturas y carga académica, abrir/cerrar periodos, anuncios, consolidados, boletines y observador de toda la institución. Mensajes privados con cualquier usuario |
+
+## Interacción estudiante-docente
+
+Reemplaza lo que en la universidad se hace por Teams:
+
+- **Mis clases (muro):** cada asignatura de un grado tiene su muro. El docente publica avisos, guías y archivos (y puede fijarlos arriba); los estudiantes preguntan y comentan. Solo lo ven el grado y su docente.
+- **Mensajes:** chat privado uno a uno. El estudiante puede escribirles a sus docentes y a su director de grupo; el docente, a los estudiantes de sus grados y a coordinación. El menú muestra cuántos mensajes hay sin leer.
+- **Comentarios privados en tareas:** dentro de cada actividad, una conversación entre el estudiante y el docente sobre esa entrega. Al calificar, el docente ve quién dejó comentarios.
 
 ## Instalación
 

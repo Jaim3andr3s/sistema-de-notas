@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { api, descargar } from '../api.js'
 import { Caja, ConDatos, Nota, Icono, Modal, Aviso, Vacio, Campo, useApi } from '../componentes/ui.jsx'
 import { TIPOS_ACTIVIDAD, fechaHora, vencida } from '../util.js'
+import { ComentariosTarea } from '../compartido/Interaccion.jsx'
 
 const FILTROS = {
   pendientes: (a) => !a.entregado_en && a.nota == null,
@@ -102,6 +103,8 @@ function DetalleActividad({ id, onCerrar }) {
             ) : (
               <Entrega actividad={a} onListo={consulta.recargar} />
             )}
+            <hr />
+            <ComentariosTarea actividadId={a.id} />
           </div>
         )}
       </ConDatos>

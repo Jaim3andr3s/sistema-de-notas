@@ -62,3 +62,12 @@ export const hoy = () => new Date().toLocaleDateString('en-CA')
 export const vencida = (fechaEntrega) => Boolean(fechaEntrega) && aFecha(fechaEntrega) < new Date()
 
 export const nombreCompleto = (u) => (u ? `${u.nombres} ${u.apellidos}` : '')
+
+// Ícono de Material Icons según el nombre de la asignatura
+const ICONOS_ASIGNATURA = [
+  [/matem/i, 'calculate'], [/qu[ií]mica/i, 'science'], [/f[ií]sica(?!.*educ)/i, 'bolt'], [/natural|biolog/i, 'eco'],
+  [/social|historia|geograf/i, 'public'], [/ingl[eé]s|idioma/i, 'translate'], [/lengua|castellan|lectura/i, 'menu_book'],
+  [/educaci[oó]n f[ií]sica|deporte/i, 'sports_soccer'], [/tecnolog|inform[aá]tica/i, 'computer'], [/[eé]tica|valores/i, 'diversity_3'],
+  [/art[ií]stica|arte|m[uú]sica/i, 'palette'], [/religi/i, 'auto_stories'], [/filosof/i, 'psychology'],
+]
+export const iconoAsignatura = (nombre = '') => ICONOS_ASIGNATURA.find(([re]) => re.test(nombre))?.[1] ?? 'class'

@@ -122,3 +122,19 @@ export function ConDatos({ consulta, children }) {
   if (!consulta.datos) return null
   return children(consulta.datos)
 }
+
+// Cuadrícula de accesos a las secciones del menú (como en emma)
+export function Accesos({ items, onIr }) {
+  return (
+    <ul className="accesos">
+      {items.map((i) => (
+        <li key={i.id}>
+          <button onClick={() => onIr(i.id)}>
+            <span className="acceso-icono"><Icono nombre={i.icono} /></span>
+            <span className="acceso-texto"><strong>{i.nombre}</strong></span>
+          </button>
+        </li>
+      ))}
+    </ul>
+  )
+}

@@ -177,14 +177,15 @@ router.get('/actividades/:id', async (req, res) => {
   const [estudiantes] = await pool.query(
     `SELECT m.id AS matricula_id, u.documento, CONCAT(u.apellidos, ' ', u.nombres) AS nombre,
             e.id AS entrega_id, e.texto, e.archivo, e.archivo_nombre, e.respuestas, e.entregado_en,
-            e.nota, e.retroalimentacion, e.calificado_en
+            e.nota, e.retroalimentacion, e.calificado_en,
+            (SELECT COUNT(*) FROM comentarios_entrega ce WHERE ce.actividad_id = ? AND ce.matricula_id = m.id) AS comentarios
        FROM matriculas m
        JOIN estudiantes s ON s.id = m.estudiante_id
        JOIN usuarios u    ON u.id = s.usuario_id
        LEFT JOIN entregas e ON e.actividad_id = ? AND e.matricula_id = m.id
       WHERE m.grado_id = ? AND m.estado = 'activa'
       ORDER BY u.apellidos, u.nombres`,
-    [a.id, carga.grado_id]
+    [a.id, a.id, carga.grado_id]
   )
   res.json({ actividad: a, carga, estudiantes })
 })

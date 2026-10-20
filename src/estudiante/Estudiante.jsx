@@ -1,11 +1,13 @@
 import { useState } from 'react'
 import Layout from '../componentes/Layout.jsx'
-import { Caja, ConDatos, Nota, Etiqueta, Escala, Icono, Vacio, useApi } from '../componentes/ui.jsx'
+import { Accesos, Caja, ConDatos, Nota, Etiqueta, Escala, Icono, Vacio, useApi } from '../componentes/ui.jsx'
 import { ListaObservaciones } from '../compartido/Observador.jsx'
 import TablaHorario from '../compartido/TablaHorario.jsx'
 import Boletin from '../compartido/Boletin.jsx'
 import Perfil from '../compartido/Perfil.jsx'
 import Actividades from './Actividades.jsx'
+import Clases from '../compartido/Clases.jsx'
+import Mensajes from '../compartido/Mensajes.jsx'
 import { api } from '../api.js'
 import { promedio, fecha, fechaHora, vencida, TIPOS_ACTIVIDAD } from '../util.js'
 
@@ -13,6 +15,8 @@ const MENU = [
   { id: 'inicio', nombre: 'Inicio', icono: 'home' },
   { id: 'notas', nombre: 'Mis notas', icono: 'grading' },
   { id: 'actividades', nombre: 'Actividades y tareas', icono: 'assignment' },
+  { id: 'clases', nombre: 'Mis clases', icono: 'forum' },
+  { id: 'mensajes', nombre: 'Mensajes', icono: 'chat' },
   { id: 'horario', nombre: 'Horario', icono: 'calendar_month' },
   { id: 'asistencia', nombre: 'Asistencia', icono: 'event_available' },
   { id: 'observador', nombre: 'Observador', icono: 'fact_check' },
@@ -22,7 +26,7 @@ const MENU = [
 
 export default function Estudiante({ usuario, onSalir }) {
   const [vista, setVista] = useState('inicio')
-  const VISTAS = { inicio: Inicio, notas: Notas, actividades: Actividades, horario: Horario, asistencia: Asistencia, observador: Observador, boletines: Boletines, perfil: MiPerfil }
+  const VISTAS = { inicio: Inicio, notas: Notas, actividades: Actividades, clases: Clases, mensajes: Mensajes, horario: Horario, asistencia: Asistencia, observador: Observador, boletines: Boletines, perfil: MiPerfil }
   const Vista = VISTAS[vista]
   return (
     <Layout menu={MENU} vista={vista} onVista={setVista} usuario={usuario} onSalir={onSalir}>
@@ -51,7 +55,7 @@ function Inicio({ usuario, ir }) {
     <>
       <section className="bienvenida-card">
         <div>
-          <p className="saludo">¡Hola, {usuario.nombres.split(' ')[0]}!</p>
+          <p className="saludo">¡Hola, <span>{usuario.nombres.split(' ')[0]}</span>!</p>
           {m && (
             <>
               <p>Grado <strong>{m.grado}</strong> · Jornada {m.jornada} · Año lectivo {m.anio}</p>
@@ -84,6 +88,10 @@ function Inicio({ usuario, ir }) {
           <strong>{pendientes.length}</strong>
         </div>
       </section>
+
+      <Caja titulo="Accesos rápidos">
+        <Accesos items={MENU.filter((m) => !['inicio', 'perfil'].includes(m.id))} onIr={ir} />
+      </Caja>
 
       <div className="columnas">
         <Caja titulo="Actividades por entregar" acciones={<button className="enlace" onClick={() => ir('actividades')}>Ver todas</button>}>
