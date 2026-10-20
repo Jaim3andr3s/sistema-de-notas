@@ -6,11 +6,13 @@ import Observador from '../compartido/Observador.jsx'
 import Perfil from '../compartido/Perfil.jsx'
 import SitioWeb from './SitioWeb.jsx'
 import Mensajes from '../compartido/Mensajes.jsx'
+import Docentes from './Docentes.jsx'
 import { api } from '../api.js'
 import { ROLES, fecha, hoy } from '../util.js'
 
 const MENU = [
   { id: 'inicio', nombre: 'Inicio', icono: 'dashboard' },
+  { id: 'docentes', nombre: 'Equipo docente', icono: 'badge' },
   { id: 'usuarios', nombre: 'Usuarios', icono: 'group' },
   { id: 'academico', nombre: 'Grados y asignaturas', icono: 'school' },
   { id: 'periodos', nombre: 'Periodos', icono: 'date_range' },
@@ -27,6 +29,7 @@ export default function Admin({ usuario, onSalir }) {
   const [vista, setVista] = useState('inicio')
   const VISTAS = {
     inicio: <Inicio ir={setVista} />,
+    docentes: <Docentes />,
     usuarios: <Usuarios />,
     academico: <Academico />,
     periodos: <Periodos />,

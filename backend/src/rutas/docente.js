@@ -9,6 +9,14 @@ import { entero, nota as validarNota, requerido } from '../validar.js'
 const router = Router()
 router.use(autenticar, permitir('docente', 'administrador'))
 
+// La rectoría consulta, pero las notas, actividades y asistencia solo las registra el docente
+router.use((req, res, next) => {
+  if (req.method !== 'GET' && req.usuario.rol !== 'docente') {
+    throw new ErrorHttp(403, 'La rectoría puede consultar las notas, pero solo el docente puede registrarlas o modificarlas')
+  }
+  next()
+})
+
 const TIPOS = ['tarea', 'taller', 'cuestionario', 'evaluacion', 'exposicion', 'proyecto']
 
 async function matriculasActivas(gradoId) {
@@ -74,7 +82,7 @@ router.put('/cargas/:id/notas', async (req, res) => {
   const carga = await cargaPermitida(req.usuario, entero(req.params.id, 'Carga'))
   requerido(req.body, ['periodo_id', 'notas'])
   const periodo = await periodoDelAnio(entero(req.body.periodo_id, 'Periodo'), carga.anio)
-  exigirPeriodoAbierto(periodo, req.usuario)
+  exigirPeriodoAbierto(periodo)
   if (!Array.isArray(req.body.notas)) throw new ErrorHttp(400, 'notas debe ser una lista')
 
   const validos = await matriculasActivas(carga.grado_id)
@@ -153,7 +161,7 @@ function leerActividad(body) {
 router.post('/cargas/:id/actividades', subir.single('archivo'), async (req, res) => {
   const carga = await cargaPermitida(req.usuario, entero(req.params.id, 'Carga'))
   const datos = leerActividad(req.body)
-  exigirPeriodoAbierto(await periodoDelAnio(datos.periodo_id, carga.anio), req.usuario)
+  exigirPeriodoAbierto(await periodoDelAnio(datos.periodo_id, carga.anio))
 
   const [r] = await pool.query('INSERT INTO actividades SET ?', [{
     ...datos,
@@ -193,7 +201,7 @@ router.get('/actividades/:id', async (req, res) => {
 router.put('/actividades/:id', subir.single('archivo'), async (req, res) => {
   const { a, carga } = await actividadPermitida(req.usuario, entero(req.params.id, 'Actividad'))
   const datos = leerActividad({ ...req.body, periodo_id: req.body.periodo_id ?? a.periodo_id })
-  exigirPeriodoAbierto(await periodoDelAnio(datos.periodo_id, carga.anio), req.usuario)
+  exigirPeriodoAbierto(await periodoDelAnio(datos.periodo_id, carga.anio))
   if (req.file) Object.assign(datos, { archivo: req.file.filename, archivo_nombre: req.file.originalname })
   await pool.query('UPDATE actividades SET ? WHERE id = ?', [datos, a.id])
   res.json({ ok: true })
@@ -201,7 +209,7 @@ router.put('/actividades/:id', subir.single('archivo'), async (req, res) => {
 
 router.delete('/actividades/:id', async (req, res) => {
   const { a, carga } = await actividadPermitida(req.usuario, entero(req.params.id, 'Actividad'))
-  exigirPeriodoAbierto(await periodoDelAnio(a.periodo_id, carga.anio), req.usuario)
+  exigirPeriodoAbierto(await periodoDelAnio(a.periodo_id, carga.anio))
   await pool.query('DELETE FROM actividades WHERE id = ?', [a.id])
   res.json({ ok: true })
 })
@@ -210,7 +218,7 @@ router.delete('/actividades/:id', async (req, res) => {
 // Sirve también para actividades presenciales (crea la fila de entrega si no existe)
 router.put('/actividades/:id/calificaciones', async (req, res) => {
   const { a, carga } = await actividadPermitida(req.usuario, entero(req.params.id, 'Actividad'))
-  exigirPeriodoAbierto(await periodoDelAnio(a.periodo_id, carga.anio), req.usuario)
+  exigirPeriodoAbierto(await periodoDelAnio(a.periodo_id, carga.anio))
   if (!Array.isArray(req.body.calificaciones)) throw new ErrorHttp(400, 'calificaciones debe ser una lista')
 
   const validos = await matriculasActivas(carga.grado_id)

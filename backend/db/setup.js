@@ -207,6 +207,23 @@ for (const [inicio, fin, dias] of HORARIO) {
   }
 }
 
+// Horario de 11°A: se reparte la intensidad horaria sin cruzar a ningún docente con su clase en 10°A
+const docenteDe = Object.fromEntries(PLAN.map(([nombre, , docente]) => [nombre, docente]))
+const pendientes = Object.fromEntries(PLAN.map(([nombre, , , ih]) => [nombre, ih]))
+for (let d = 0; d < 5; d++) {
+  const hoy = {}
+  for (const [inicio, fin, dias] of HORARIO) {
+    const ocupado = docenteDe[dias[d]]
+    const asignatura = Object.keys(pendientes)
+      .filter((a) => pendientes[a] > 0 && docenteDe[a] !== ocupado && (hoy[a] ?? 0) < 2)
+      .sort((a, b) => pendientes[b] - pendientes[a])[0]
+    if (!asignatura) continue // hora libre del grupo
+    pendientes[asignatura]--
+    hoy[asignatura] = (hoy[asignatura] ?? 0) + 1
+    await insertar('horarios', { carga_id: cargas[g11a][asignatura], dia: d + 1, hora_inicio: inicio, hora_fin: fin })
+  }
+}
+
 for (const [titulo, texto, fecha, gradoId, publico] of [
   ['Cierre de notas del Periodo 4', 'Los docentes deben registrar las notas definitivas antes del cierre.', '2026-11-27', null, false],
   ['Entrega de boletines del Periodo 3', 'Reunión de padres de familia y acudientes a las 7:00 a.m. en cada sede.', '2026-10-31', null, true],

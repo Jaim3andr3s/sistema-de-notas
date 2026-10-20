@@ -92,14 +92,122 @@ router.get('/grados', async (req, res) => {
   res.json(filas)
 })
 
+// ---------- Directores de grupo ----------
+// El director de grupo es el docente que responde por los estudiantes de ese grado
+const MAX_GRUPOS_DIRECTOR = 2
+
+async function validarDirector(directorId, anio, gradoId = 0) {
+  if (!directorId) return null
+  const id = entero(directorId, 'Director')
+  const [[d]] = await pool.query("SELECT nombres, apellidos FROM usuarios WHERE id = ? AND rol = 'docente' AND activo", [id])
+  if (!d) throw new ErrorHttp(400, 'El director de grupo debe ser un docente activo')
+  const [grupos] = await pool.query('SELECT nombre FROM grados WHERE director_id = ? AND anio = ? AND id <> ?', [id, anio, gradoId])
+  if (grupos.length >= MAX_GRUPOS_DIRECTOR) {
+    throw new ErrorHttp(409,
+      `${d.nombres} ${d.apellidos} ya es director(a) de ${grupos.map((g) => g.nombre).join(' y ')}. ` +
+      `Un docente puede dirigir máximo ${MAX_GRUPOS_DIRECTOR} grupos; quítale uno antes de asignarle otro.`)
+  }
+  return id
+}
+
 router.post('/grados', async (req, res) => {
   requerido(req.body, ['nombre', 'nivel', 'anio'])
   const { nombre, nivel, jornada = 'Mañana', anio, director_id } = req.body
+  const director = await validarDirector(director_id, anio)
   const [r] = await pool.query(
     'INSERT INTO grados (nombre, nivel, jornada, anio, director_id) VALUES (?, ?, ?, ?, ?)',
-    [nombre, nivel, jornada, anio, director_id || null]
+    [nombre, nivel, jornada, anio, director]
   )
   res.status(201).json({ id: r.insertId })
+})
+
+// Cambia (o quita, con null) el director de un grado
+router.patch('/grados/:id/director', async (req, res) => {
+  const [[grado]] = await pool.query('SELECT id, anio FROM grados WHERE id = ?', [entero(req.params.id, 'Grado')])
+  if (!grado) throw new ErrorHttp(404, 'Grado no encontrado')
+  const director = await validarDirector(req.body.director_id, grado.anio, grado.id)
+  await pool.query('UPDATE grados SET director_id = ? WHERE id = ?', [director, grado.id])
+  res.json({ ok: true })
+})
+
+// ---------- Disponibilidad docente ----------
+const DIAS_SEMANA = ['', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes']
+
+// Quién está en clase y quién en hora libre en un día y hora: ?dia=1..5&hora=HH:MM
+// Sin parámetros usa el momento actual (o el lunes a primera hora si no hay clases ahora)
+router.get('/disponibilidad', async (req, res) => {
+  const [[{ anio }]] = await pool.query('SELECT COALESCE(MAX(anio), YEAR(CURDATE())) AS anio FROM grados')
+  const ahora = new Date()
+  const horaActual = ahora.toTimeString().slice(0, 5)
+  let dia = req.query.dia ? entero(req.query.dia, 'Día') : ahora.getDay()
+  let hora = req.query.hora ?? horaActual
+  if (dia < 1 || dia > 5) {
+    if (req.query.dia) throw new ErrorHttp(400, 'El día debe estar entre 1 (lunes) y 5 (viernes)')
+    dia = 1
+  }
+  if (!/^\d{2}:\d{2}$/.test(hora)) throw new ErrorHttp(400, 'Hora inválida, usa HH:MM')
+
+  const [bloques] = await pool.query(
+    `SELECT c.docente_id, TIME_FORMAT(h.hora_inicio, '%H:%i') AS inicio, TIME_FORMAT(h.hora_fin, '%H:%i') AS fin,
+            g.nombre AS grado, a.nombre AS asignatura
+       FROM horarios h
+       JOIN cargas c      ON c.id = h.carga_id
+       JOIN grados g      ON g.id = c.grado_id
+       JOIN asignaturas a ON a.id = c.asignatura_id
+      WHERE g.anio = ? AND h.dia = ?
+      ORDER BY h.hora_inicio`,
+    [anio, dia]
+  )
+  const franjas = [...new Map(bloques.map((b) => [b.inicio, { inicio: b.inicio, fin: b.fin }])).values()]
+
+  // Fuera de la jornada se muestra la primera franja para que la consulta sea útil
+  const enJornada = franjas.some((f) => f.inicio <= hora && hora < f.fin)
+  const enVivo = !req.query.dia && !req.query.hora && enJornada && dia === ahora.getDay()
+  if (!req.query.hora && !enVivo && franjas.length) hora = franjas[0].inicio
+
+  const [docentes] = await pool.query(
+    `SELECT u.id, u.nombres, u.apellidos,
+            (SELECT GROUP_CONCAT(g.nombre ORDER BY g.nivel, g.nombre SEPARATOR ', ') FROM grados g WHERE g.director_id = u.id AND g.anio = ?) AS direccion
+       FROM usuarios u
+      WHERE u.rol = 'docente' AND u.activo
+      ORDER BY u.nombres, u.apellidos`,
+    [anio]
+  )
+  const lista = docentes.map((d) => {
+    const suyos = bloques.filter((b) => b.docente_id === d.id)
+    const clase = suyos.find((b) => b.inicio <= hora && hora < b.fin) ?? null
+    const siguiente = suyos.find((b) => b.inicio > hora) ?? null
+    return { ...d, clase, siguiente, clases_dia: suyos.length }
+  })
+  res.json({ dia, nombre_dia: DIAS_SEMANA[dia], hora, en_vivo: enVivo, franjas, docentes: lista })
+})
+
+// Horario semanal y carga de un docente
+router.get('/docentes/:id/horario', async (req, res) => {
+  const id = entero(req.params.id, 'Docente')
+  const [[docente]] = await pool.query("SELECT id, nombres, apellidos, email, telefono FROM usuarios WHERE id = ? AND rol = 'docente'", [id])
+  if (!docente) throw new ErrorHttp(404, 'Docente no encontrado')
+  const [[{ anio }]] = await pool.query('SELECT COALESCE(MAX(anio), YEAR(CURDATE())) AS anio FROM grados')
+  const [bloques] = await pool.query(
+    `SELECT h.dia, TIME_FORMAT(h.hora_inicio, '%H:%i') AS inicio, TIME_FORMAT(h.hora_fin, '%H:%i') AS fin,
+            CONCAT(a.nombre, ' · ', g.nombre) AS asignatura
+       FROM horarios h
+       JOIN cargas c      ON c.id = h.carga_id
+       JOIN grados g      ON g.id = c.grado_id
+       JOIN asignaturas a ON a.id = c.asignatura_id
+      WHERE c.docente_id = ? AND g.anio = ?
+      ORDER BY h.hora_inicio, h.dia`,
+    [id, anio]
+  )
+  const [cargas] = await pool.query(
+    `SELECT a.nombre AS asignatura, g.nombre AS grado, c.intensidad_horaria AS ih
+       FROM cargas c JOIN grados g ON g.id = c.grado_id JOIN asignaturas a ON a.id = c.asignatura_id
+      WHERE c.docente_id = ? AND g.anio = ?
+      ORDER BY g.nivel, g.nombre, a.nombre`,
+    [id, anio]
+  )
+  const [direccion] = await pool.query('SELECT nombre FROM grados WHERE director_id = ? AND anio = ? ORDER BY nivel, nombre', [id, anio])
+  res.json({ docente, bloques, cargas, direccion: direccion.map((g) => g.nombre) })
 })
 
 // ---------- Asignaturas y cargas ----------

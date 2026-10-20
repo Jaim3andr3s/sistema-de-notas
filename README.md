@@ -12,7 +12,7 @@ Plataforma académica de la Institución Educativa Máximo Mercado: notas, activ
 |---|---|
 | Estudiante | Ver notas por periodo y acumulado, entregar tareas (texto o archivo), presentar cuestionarios con calificación automática, ver horario, asistencia, su observador (y escribir descargos) e imprimir boletines. Participar en el muro de cada asignatura, escribirles mensajes privados a sus docentes y comentar en privado cada tarea |
 | Docente | Planilla de notas por periodo (con nota sugerida a partir de las actividades), crear actividades/tareas/cuestionarios y calificarlas, tomar asistencia, registrar en el observador, ver consolidados e imprimir boletines de sus grados. Publicar avisos y material en el muro de sus clases, responder mensajes privados y los comentarios de cada tarea |
-| Administrador | Estadísticas, usuarios, grados, asignaturas y carga académica, abrir/cerrar periodos, anuncios, consolidados, boletines y observador de toda la institución. Mensajes privados con cualquier usuario |
+| Administrador (rectoría) | Estadísticas, usuarios, grados, asignaturas y carga académica, abrir/cerrar periodos, anuncios, consolidados, boletines y observador de toda la institución. **Equipo docente:** ver qué docentes están en hora libre o en clase en cualquier día y hora, el horario de cada uno, y asignar o cambiar los directores de grupo (máximo 2 grupos por docente). Mensajes privados con cualquier usuario. **Puede consultar las notas, pero no registrarlas ni modificarlas**: eso solo lo hace el docente |
 
 ## Interacción estudiante-docente
 

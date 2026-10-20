@@ -66,8 +66,9 @@ export async function periodoDelAnio(periodoId, anio) {
   return periodo
 }
 
-export function exigirPeriodoAbierto(periodo, usuario) {
-  if (periodo.cerrado && usuario.rol !== 'administrador') {
+// Nadie modifica notas de un periodo cerrado; la rectoría puede reabrirlo
+export function exigirPeriodoAbierto(periodo) {
+  if (periodo.cerrado) {
     throw new ErrorHttp(409, `El ${periodo.nombre} está cerrado; solicita la reapertura a coordinación`)
   }
 }
