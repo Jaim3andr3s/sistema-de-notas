@@ -460,3 +460,8 @@
 .punto.libre { background: var(--verde); }
 .punto.ocupado { background: var(--azul-claro); }
 @media (max-width: 1024px) { .columnas-iguales { grid-template-columns: 1fr; } }
+
+/* ---------- Acudiente ---------- */
+.selector-hijo { display: flex; align-items: center; gap: 10px; padding: 12px 16px; border-radius: 12px; background: var(--amarillo-suave); color: #6b5300; font-size: 0.92rem; }
+.selector-hijo label { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.selector-hijo select { padding: 6px 10px; border: 1.5px solid #e8d8a0; border-radius: 8px; background: var(--blanco); font: inherit; font-weight: 700; color: var(--negro); }

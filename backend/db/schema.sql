@@ -4,6 +4,7 @@
 SET NAMES utf8mb4;
 
 DROP TABLE IF EXISTS migraciones;
+DROP TABLE IF EXISTS acudientes;
 DROP TABLE IF EXISTS publicaciones_facebook;
 DROP TABLE IF EXISTS mensajes_contacto;
 DROP TABLE IF EXISTS comentarios_entrega;
@@ -31,7 +32,7 @@ CREATE TABLE usuarios (
   id            INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
   documento     VARCHAR(20)  NOT NULL UNIQUE,
   clave_hash    VARCHAR(100) NOT NULL,
-  rol           ENUM('estudiante', 'docente', 'administrador') NOT NULL,
+  rol           ENUM('estudiante', 'docente', 'administrador', 'acudiente') NOT NULL,
   nombres       VARCHAR(80)  NOT NULL,
   apellidos     VARCHAR(80)  NOT NULL,
   email         VARCHAR(120) NULL,
@@ -331,4 +332,14 @@ CREATE TABLE publicaciones_facebook (
 CREATE TABLE migraciones (
   nombre      VARCHAR(150) PRIMARY KEY,
   aplicada_en TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Padres de familia o acudientes con cuenta en la plataforma; un acudiente puede tener varios estudiantes a cargo
+CREATE TABLE acudientes (
+  acudiente_id   INT UNSIGNED NOT NULL,
+  estudiante_id  INT UNSIGNED NOT NULL,
+  parentesco     VARCHAR(40) NULL,
+  PRIMARY KEY (acudiente_id, estudiante_id),
+  CONSTRAINT fk_acudientes_usuario    FOREIGN KEY (acudiente_id)  REFERENCES usuarios (id) ON DELETE CASCADE,
+  CONSTRAINT fk_acudientes_estudiante FOREIGN KEY (estudiante_id) REFERENCES estudiantes (id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

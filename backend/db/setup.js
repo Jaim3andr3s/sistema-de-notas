@@ -301,6 +301,17 @@ for (const [remitente_id, destinatario_id, texto, creado_en, leido_en] of [
   await insertar('mensajes', { remitente_id, destinatario_id, texto, creado_en, leido_en })
 }
 
+// Acudiente demo: madre del estudiante demo y de Santiago (para ver el cambio entre hijos)
+const acudienteDemo = await usuario('4444444444', 'acudiente', 'Acudiente', 'Demo', 'acudiente.demo@correo.com')
+for (const [documento, parentesco] of [['1111111111', 'Madre'], ['1001000002', 'Madre']]) {
+  const [[e]] = await conn.query('SELECT e.id FROM estudiantes e JOIN usuarios u ON u.id = e.usuario_id WHERE u.documento = ?', [documento])
+  await insertar('acudientes', { acudiente_id: acudienteDemo, estudiante_id: e.id, parentesco })
+}
+await insertar('mensajes', {
+  remitente_id: acudienteDemo, destinatario_id: docentes.Demo, creado_en: '2026-10-18 20:15:00', leido_en: null,
+  texto: 'Buenas noches profe, soy la mamá de Estudiante Demo. Quisiera saber cómo va en Química este periodo.',
+})
+
 const [[informe]] = await conn.query("SELECT id FROM actividades WHERE titulo LIKE 'Informe de laboratorio%'")
 await insertar('comentarios_entrega', {
   actividad_id: informe.id, matricula_id: matriculas[g10a][0], autor_id: estDemo, creado_en: '2026-10-17 10:15:00',
@@ -314,3 +325,4 @@ console.log(`Usuarios demo (contraseña para todos: ${CLAVE_DEMO})`)
 console.log('  Estudiante     1111111111   (10°A)')
 console.log('  Docente        2222222222   (Matemáticas y Química, director de 10°A)')
 console.log('  Administrador  3333333333')
+console.log('  Acudiente      4444444444   (madre del estudiante demo y de Santiago)')

@@ -5,13 +5,14 @@ import { api, guardarToken } from './api.js'
 const ROLES = [
   { id: 'estudiante', nombre: 'Estudiante', icono: 'school' },
   { id: 'docente', nombre: 'Docente', icono: 'co_present' },
+  { id: 'acudiente', nombre: 'Acudiente', icono: 'family_restroom' },
 ]
-const NOMBRES = { estudiante: 'Estudiante', docente: 'Docente', administrador: 'Administrador' }
+const NOMBRES = { estudiante: 'Estudiante', docente: 'Docente', administrador: 'Administrador', acudiente: 'Acudiente' }
 
 // Cuentas demo creadas por `npm run db:setup`. El botón solo aparece en desarrollo
 // (o si se compila con VITE_MOSTRAR_DEMO=true para una demostración)
 const MOSTRAR_DEMO = import.meta.env.DEV || import.meta.env.VITE_MOSTRAR_DEMO === 'true'
-const DEMO = { estudiante: '1111111111', docente: '2222222222', administrador: '3333333333' }
+const DEMO = { estudiante: '1111111111', docente: '2222222222', administrador: '3333333333', acudiente: '4444444444' }
 const CLAVE_DEMO = 'demo1234'
 
 export default function Login({ onLogin }) {

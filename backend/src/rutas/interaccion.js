@@ -152,24 +152,41 @@ router.delete('/comentarios/:id', async (req, res) => {
 
 // ---------- Mensajes privados ----------
 
+// Docentes y director de los grados indicados
+async function docentesDeGrados(grados) {
+  if (!grados.length) return []
+  const [docentes] = await pool.query(
+    `SELECT u.id, u.nombres, u.apellidos, u.rol,
+            CONCAT_WS(' · ', IF(MAX(g.director_id = u.id), CONCAT('Director(a) de ', GROUP_CONCAT(DISTINCT IF(g.director_id = u.id, g.nombre, NULL))), NULL),
+                      GROUP_CONCAT(DISTINCT CONCAT(a.nombre, ' ', g.nombre) ORDER BY a.nombre SEPARATOR ', ')) AS detalle
+       FROM usuarios u
+       JOIN grados g ON g.id IN (?)
+       LEFT JOIN cargas c      ON c.docente_id = u.id AND c.grado_id = g.id
+       LEFT JOIN asignaturas a ON a.id = c.asignatura_id
+      WHERE u.activo AND (c.id IS NOT NULL OR g.director_id = u.id)
+      GROUP BY u.id
+      ORDER BY u.nombres, u.apellidos`,
+    [grados]
+  )
+  return docentes
+}
+
+const coordinacion = async () =>
+  (await pool.query("SELECT id, nombres, apellidos, rol, 'Coordinación' AS detalle FROM usuarios WHERE rol = 'administrador' AND activo"))[0]
+
 // Con quién puede iniciar una conversación cada rol
 async function contactos(usuario) {
-  if (usuario.rol === 'estudiante') {
-    const m = await matriculaActual(usuario.id)
-    const [docentes] = await pool.query(
-      `SELECT u.id, u.nombres, u.apellidos, u.rol,
-              CONCAT_WS(' · ', IF(MAX(g.director_id = u.id), 'Director de grupo', NULL),
-                        GROUP_CONCAT(DISTINCT a.nombre ORDER BY a.nombre SEPARATOR ', ')) AS detalle
-         FROM usuarios u
-         JOIN grados g ON g.id = ?
-         LEFT JOIN cargas c      ON c.docente_id = u.id AND c.grado_id = g.id
-         LEFT JOIN asignaturas a ON a.id = c.asignatura_id
-        WHERE u.activo AND (c.id IS NOT NULL OR g.director_id = u.id)
-        GROUP BY u.id
-        ORDER BY u.nombres, u.apellidos`,
-      [m.grado_id]
+  if (usuario.rol === 'acudiente') {
+    const [grados] = await pool.query(
+      `SELECT DISTINCT m.grado_id FROM acudientes a
+         JOIN matriculas m ON m.estudiante_id = a.estudiante_id AND m.estado = 'activa'
+        WHERE a.acudiente_id = ?`,
+      [usuario.id]
     )
-    return docentes
+    return [...(await coordinacion()), ...(await docentesDeGrados(grados.map((g) => g.grado_id)))]
+  }
+  if (usuario.rol === 'estudiante') {
+    return docentesDeGrados([(await matriculaActual(usuario.id)).grado_id])
   }
   if (usuario.rol === 'docente') {
     const [estudiantes] = await pool.query(
@@ -184,10 +201,22 @@ async function contactos(usuario) {
         ORDER BY u.apellidos, u.nombres`,
       [usuario.id, usuario.id]
     )
-    const [admins] = await pool.query(
-      "SELECT id, nombres, apellidos, rol, 'Coordinación' AS detalle FROM usuarios WHERE rol = 'administrador' AND activo"
+    const [acudientes] = await pool.query(
+      `SELECT u.id, u.nombres, u.apellidos, u.rol,
+              CONCAT('Acudiente de ', GROUP_CONCAT(DISTINCT CONCAT(eu.nombres, ' (', g.nombre, ')') SEPARATOR ', ')) AS detalle
+         FROM acudientes ac
+         JOIN usuarios u     ON u.id = ac.acudiente_id
+         JOIN estudiantes e  ON e.id = ac.estudiante_id
+         JOIN usuarios eu    ON eu.id = e.usuario_id
+         JOIN matriculas m   ON m.estudiante_id = e.id AND m.estado = 'activa'
+         JOIN grados g       ON g.id = m.grado_id
+        WHERE u.activo
+          AND (g.director_id = ? OR EXISTS (SELECT 1 FROM cargas c WHERE c.grado_id = g.id AND c.docente_id = ?))
+        GROUP BY u.id
+        ORDER BY u.apellidos, u.nombres`,
+      [usuario.id, usuario.id]
     )
-    return [...admins, ...estudiantes]
+    return [...(await coordinacion()), ...estudiantes, ...acudientes]
   }
   const [todos] = await pool.query(
     'SELECT id, nombres, apellidos, rol, NULL AS detalle FROM usuarios WHERE activo AND id <> ? ORDER BY rol, apellidos, nombres',

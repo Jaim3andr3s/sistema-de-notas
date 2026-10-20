@@ -8,7 +8,7 @@ import { subirImagen } from '../archivos.js'
 const router = Router()
 router.use(autenticar, permitir('administrador'))
 
-const ROLES = ['estudiante', 'docente', 'administrador']
+const ROLES = ['estudiante', 'docente', 'administrador', 'acudiente']
 
 // ---------- Usuarios ----------
 router.get('/usuarios', async (req, res) => {
@@ -60,6 +60,44 @@ router.post('/usuarios', async (req, res) => {
     return r.insertId
   })
   res.status(201).json({ id })
+})
+
+// ---------- Acudientes ----------
+router.get('/acudientes/:id', async (req, res) => {
+  const [filas] = await pool.query(
+    `SELECT e.id AS estudiante_id, u.documento, u.nombres, u.apellidos, a.parentesco,
+            (SELECT g.nombre FROM matriculas m JOIN grados g ON g.id = m.grado_id
+              WHERE m.estudiante_id = e.id ORDER BY m.anio DESC LIMIT 1) AS grado
+       FROM acudientes a JOIN estudiantes e ON e.id = a.estudiante_id JOIN usuarios u ON u.id = e.usuario_id
+      WHERE a.acudiente_id = ? ORDER BY u.nombres`,
+    [entero(req.params.id, 'Acudiente')]
+  )
+  res.json(filas)
+})
+
+// Vincula un estudiante (por su documento) a un acudiente
+router.post('/acudientes', async (req, res) => {
+  requerido(req.body, ['acudiente_id', 'documento_estudiante'])
+  const acudienteId = entero(req.body.acudiente_id, 'Acudiente')
+  const [[a]] = await pool.query("SELECT 1 FROM usuarios WHERE id = ? AND rol = 'acudiente'", [acudienteId])
+  if (!a) throw new ErrorHttp(400, 'El usuario no es acudiente')
+  const [[e]] = await pool.query(
+    'SELECT e.id FROM estudiantes e JOIN usuarios u ON u.id = e.usuario_id WHERE u.documento = ?',
+    [String(req.body.documento_estudiante).trim()]
+  )
+  if (!e) throw new ErrorHttp(404, 'No hay un estudiante con ese documento')
+  await pool.query(
+    'INSERT INTO acudientes (acudiente_id, estudiante_id, parentesco) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE parentesco = VALUES(parentesco)',
+    [acudienteId, e.id, req.body.parentesco?.trim().slice(0, 40) || null]
+  )
+  res.status(201).json({ ok: true })
+})
+
+router.delete('/acudientes/:acudiente/:estudiante', async (req, res) => {
+  await pool.query('DELETE FROM acudientes WHERE acudiente_id = ? AND estudiante_id = ?', [
+    entero(req.params.acudiente, 'Acudiente'), entero(req.params.estudiante, 'Estudiante'),
+  ])
+  res.json({ ok: true })
 })
 
 router.patch('/usuarios/:id', async (req, res) => {

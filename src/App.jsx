@@ -6,8 +6,9 @@ import Sitio from './sitio/Sitio.jsx'
 import Estudiante from './estudiante/Estudiante.jsx'
 import Docente from './docente/Docente.jsx'
 import Admin from './admin/Admin.jsx'
+import Acudiente from './acudiente/Acudiente.jsx'
 
-const PANELES = { estudiante: Estudiante, docente: Docente, administrador: Admin }
+const PANELES = { estudiante: Estudiante, docente: Docente, administrador: Admin, acudiente: Acudiente }
 
 // El sitio público vive en "/" y la plataforma académica en "/plataforma"
 export default function App() {
