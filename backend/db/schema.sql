@@ -3,6 +3,7 @@
 
 SET NAMES utf8mb4;
 
+DROP TABLE IF EXISTS migraciones;
 DROP TABLE IF EXISTS publicaciones_facebook;
 DROP TABLE IF EXISTS mensajes_contacto;
 DROP TABLE IF EXISTS comentarios_entrega;
@@ -324,4 +325,10 @@ CREATE TABLE publicaciones_facebook (
   creado_en    TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   UNIQUE KEY uq_facebook_url (url(255)),
   CONSTRAINT fk_facebook_autor FOREIGN KEY (autor_id) REFERENCES usuarios (id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Cambios de esquema ya aplicados (npm run db:migrate)
+CREATE TABLE migraciones (
+  nombre      VARCHAR(150) PRIMARY KEY,
+  aplicada_en TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

@@ -19,6 +19,13 @@ if (!process.env.JWT_SECRET) {
 }
 
 const app = express()
+// Detrás de Nginx u otro proxy, para que req.ip sea la IP real del visitante
+if (process.env.TRUST_PROXY) app.set('trust proxy', Number(process.env.TRUST_PROXY) || 1)
+app.disable('x-powered-by')
+app.use((req, res, next) => {
+  res.set({ 'X-Content-Type-Options': 'nosniff', 'X-Frame-Options': 'SAMEORIGIN', 'Referrer-Policy': 'strict-origin-when-cross-origin' })
+  next()
+})
 app.use(cors({ origin: process.env.CORS_ORIGIN?.split(',') ?? 'http://localhost:5173' }))
 app.use(express.json({ limit: '1mb' }))
 

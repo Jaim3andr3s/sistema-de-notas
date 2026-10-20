@@ -7,7 +7,9 @@
   "scripts": {
     "start": "node src/server.js",
     "dev": "node --watch src/server.js",
-    "db:setup": "node db/setup.js"
+    "db:setup": "node db/setup.js",
+    "db:migrate": "node db/migrar.js",
+    "db:respaldo": "node scripts/respaldo.js"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",

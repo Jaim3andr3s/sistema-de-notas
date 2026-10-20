@@ -1,7 +1,7 @@
 // Crea la base de datos, las tablas y carga datos de prueba.
 // OJO: borra y recrea todas las tablas. Uso: npm run db:setup
 import 'dotenv/config'
-import { readFile } from 'node:fs/promises'
+import { readFile, readdir } from 'node:fs/promises'
 import mysql from 'mysql2/promise'
 import bcrypt from 'bcryptjs'
 
@@ -10,6 +10,10 @@ const DB = process.env.DB_NAME
 const CLAVE_DEMO = 'demo1234'
 
 if (!/^\w+$/.test(DB || '')) throw new Error('DB_NAME inválido en .env')
+if (process.env.NODE_ENV === 'production' && !process.argv.includes('--forzar')) {
+  console.error('db:setup BORRA todos los datos y NODE_ENV=production. Para actualizar el esquema usa: npm run db:migrate')
+  process.exit(1)
+}
 
 const conn = await mysql.createConnection({
   host: process.env.DB_HOST,
@@ -23,6 +27,11 @@ await conn.query(`CREATE DATABASE IF NOT EXISTS \`${DB}\` CHARACTER SET utf8mb4 
 await conn.query(`USE \`${DB}\``)
 await conn.query(await readFile(new URL('./schema.sql', import.meta.url), 'utf8'))
 console.log(`✓ Base "${DB}" y tablas creadas`)
+
+// schema.sql ya incluye todas las migraciones: se marcan como aplicadas
+for (const nombre of (await readdir(new URL('./migraciones/', import.meta.url))).filter((f) => f.endsWith('.sql'))) {
+  await conn.query('INSERT INTO migraciones (nombre) VALUES (?)', [nombre])
+}
 
 // ---------- Datos de prueba ----------
 const hashDemo = await bcrypt.hash(CLAVE_DEMO, 10)
