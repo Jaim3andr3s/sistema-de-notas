@@ -22,6 +22,12 @@ Reemplaza lo que en la universidad se hace por Teams:
 - **Mensajes:** chat privado uno a uno. El estudiante puede escribirles a sus docentes y a su director de grupo; el docente, a los estudiantes de sus grados y a coordinación. El menú muestra cuántos mensajes hay sin leer.
 - **Comentarios privados en tareas:** dentro de cada actividad, una conversación entre el estudiante y el docente sobre esa entrega. Al calificar, el docente ve quién dejó comentarios.
 
+## Sitio web y Facebook
+
+El sitio público (`/`) muestra noticias, agenda y publicaciones de Facebook. El Facebook del colegio es un **perfil personal**, y Facebook no permite mostrar el muro de un perfil en otra página. Por eso las publicaciones se agregan una por una desde **Sitio web → Facebook** en el panel del administrador: se pega el enlace de una publicación pública y el sitio la muestra.
+
+Si el colegio crea una **página de Facebook**, basta con poner su enlace en `facebookPagina` (`src/sitio/contenido.js`) y el sitio mostrará el muro completo automáticamente.
+
 ## Instalación
 
 ```bash

@@ -1,4 +1,4 @@
-// Administración del sitio público: noticias y mensajes del formulario de contacto
+// Administración del sitio público: noticias, publicaciones de Facebook y mensajes de contacto
 import { useState } from 'react'
 import { api } from '../api.js'
 import { Caja, ConDatos, Icono, Modal, Campo, Aviso, Vacio, useApi } from '../componentes/ui.jsx'
@@ -14,13 +14,85 @@ export default function SitioWeb() {
     <>
       <div className="pestanas">
         <button className={pestana === 'noticias' ? 'activa' : ''} onClick={() => setPestana('noticias')}>Noticias</button>
+        <button className={pestana === 'facebook' ? 'activa' : ''} onClick={() => setPestana('facebook')}>Facebook</button>
         <button className={pestana === 'mensajes' ? 'activa' : ''} onClick={() => setPestana('mensajes')}>
           Mensajes de contacto {sinLeer > 0 && <span>{sinLeer}</span>}
         </button>
         <a className="btn-secundario ver-sitio" href="/" target="_blank" rel="noreferrer"><Icono nombre="open_in_new" /> Ver sitio</a>
       </div>
-      {pestana === 'noticias' ? <Noticias /> : <Mensajes consulta={mensajes} />}
+      {pestana === 'noticias' && <Noticias />}
+      {pestana === 'facebook' && <Facebook />}
+      {pestana === 'mensajes' && <Mensajes consulta={mensajes} />}
     </>
+  )
+}
+
+// Publicaciones de Facebook que se muestran insertadas en el sitio
+function Facebook() {
+  const consulta = useApi('/admin/facebook')
+  const [nueva, setNueva] = useState({ url: '', descripcion: '' })
+  const [msg, setMsg] = useState({ tipo: '', texto: '' })
+
+  async function agregar(e) {
+    e.preventDefault()
+    try {
+      await api('/admin/facebook', { method: 'POST', body: nueva })
+      setNueva({ url: '', descripcion: '' })
+      setMsg({ tipo: 'exito', texto: 'Publicación agregada al sitio' })
+      consulta.recargar()
+    } catch (err) {
+      setMsg({ tipo: 'error', texto: err.message })
+    }
+  }
+
+  async function quitar(p) {
+    if (!window.confirm('¿Quitar esta publicación del sitio? (En Facebook no se borra)')) return
+    await api(`/admin/facebook/${p.id}`, { method: 'DELETE' })
+    consulta.recargar()
+  }
+
+  return (
+    <div className="columnas">
+      <Caja titulo="Publicaciones de Facebook en el sitio">
+        <ConDatos consulta={consulta}>
+          {(lista) => lista.length === 0 ? <Vacio icono="thumb_up">Aún no hay publicaciones. Agrega la primera con el formulario.</Vacio> : (
+            <ul className="lista-simple">
+              {lista.map((p) => (
+                <li key={p.id}>
+                  <div>
+                    <strong>{p.descripcion || 'Publicación de Facebook'}</strong>
+                    <small>{p.url}</small>
+                    <small>Agregada el {fecha(p.creado_en)}</small>
+                  </div>
+                  <span className="acciones-fila">
+                    <a className="btn-icono" title="Abrir en Facebook" href={p.url} target="_blank" rel="noreferrer"><Icono nombre="open_in_new" /></a>
+                    <button className="btn-icono peligro" title="Quitar del sitio" onClick={() => quitar(p)}><Icono nombre="delete" /></button>
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </ConDatos>
+        <p className="texto-suave">El sitio muestra las 6 más recientes.</p>
+      </Caja>
+
+      <Caja titulo="Agregar publicación">
+        <form className="form" onSubmit={agregar}>
+          <Campo etiqueta="Enlace de la publicación" ayuda="En Facebook abre la publicación, toca ⋯ y elige «Copiar enlace». La publicación debe ser pública (ícono 🌎).">
+            <input value={nueva.url} onChange={(e) => setNueva({ ...nueva, url: e.target.value })} placeholder="https://www.facebook.com/.../posts/..." required />
+          </Campo>
+          <Campo etiqueta="Descripción (opcional)" ayuda="Solo para reconocerla aquí; no se muestra en el sitio.">
+            <input value={nueva.descripcion} maxLength={200} onChange={(e) => setNueva({ ...nueva, descripcion: e.target.value })} placeholder="Ej: Resultados Saber 11" />
+          </Campo>
+          <Aviso tipo={msg.tipo}>{msg.texto}</Aviso>
+          <div className="form-acciones"><button className="btn-primario"><Icono nombre="add" /> Agregar al sitio</button></div>
+        </form>
+        <Aviso tipo="info">
+          El Facebook del colegio es un perfil personal, y Facebook no deja mostrar automáticamente el muro de un perfil en otra página.
+          Si el colegio crea una <strong>página de Facebook</strong>, el sitio puede mostrar todas las publicaciones solo, sin agregarlas una por una.
+        </Aviso>
+      </Caja>
+    </div>
   )
 }
 

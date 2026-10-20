@@ -47,6 +47,12 @@ router.get('/eventos', async (req, res) => {
   res.json(filas)
 })
 
+// Publicaciones de Facebook que el sitio muestra insertadas
+router.get('/facebook', async (req, res) => {
+  const [filas] = await pool.query('SELECT id, url FROM publicaciones_facebook ORDER BY id DESC LIMIT 6')
+  res.json(filas)
+})
+
 // Solo se sirven imágenes asociadas a noticias publicadas
 router.get('/imagenes/:nombre', async (req, res) => {
   const [[n]] = await pool.query('SELECT 1 FROM noticias WHERE imagen = ? AND publicada LIMIT 1', [req.params.nombre])

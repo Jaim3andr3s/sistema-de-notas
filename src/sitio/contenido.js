@@ -9,6 +9,8 @@ export const COLEGIO = {
   eslogan: 'Caminamos hacia la excelencia',
   frase: 'Nunca te rindas, sonríe, sueña, aprende y triunfarás',
   facebook: 'https://www.facebook.com/iemaximomercado.desabanalarga.9',
+  // Si el colegio crea una página de Facebook (no un perfil), poner aquí su enlace y el sitio mostrará el muro automáticamente
+  facebookPagina: '',
   correo: '',      // ej. contacto@iemm.edu.co
   telefono: '',    // ej. (605) 000 0000
   direccion: 'Sabanalarga, Atlántico',

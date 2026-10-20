@@ -389,6 +389,46 @@ router.get('/anuncios', async (req, res) => {
   res.json(filas)
 })
 
+// ---------- Publicaciones de Facebook ----------
+const HOSTS_FACEBOOK = ['facebook.com', 'www.facebook.com', 'm.facebook.com', 'web.facebook.com']
+const PARAMETROS_FACEBOOK = ['story_fbid', 'id', 'fbid', 'v', 'set']
+
+// Acepta solo enlaces de facebook.com y deja únicamente los parámetros que identifican la publicación
+function enlaceFacebook(valor) {
+  let u
+  try {
+    u = new URL(String(valor ?? '').trim())
+  } catch {
+    throw new ErrorHttp(400, 'Pega el enlace completo de la publicación (empieza por https://www.facebook.com/...)')
+  }
+  if (u.protocol !== 'https:' || !HOSTS_FACEBOOK.includes(u.hostname)) {
+    throw new ErrorHttp(400, 'El enlace debe ser de una publicación de facebook.com')
+  }
+  const limpio = new URL(`https://www.facebook.com${u.pathname.replace(/\/+$/, '')}`)
+  for (const p of PARAMETROS_FACEBOOK) if (u.searchParams.has(p)) limpio.searchParams.set(p, u.searchParams.get(p))
+  if (limpio.pathname.split('/').filter(Boolean).length < 2 && !limpio.search) {
+    throw new ErrorHttp(400, 'Ese enlace es de un perfil, no de una publicación. Abre la publicación y copia su enlace.')
+  }
+  return limpio.toString()
+}
+
+router.get('/facebook', async (req, res) => {
+  const [filas] = await pool.query('SELECT id, url, descripcion, creado_en FROM publicaciones_facebook ORDER BY id DESC')
+  res.json(filas)
+})
+
+router.post('/facebook', async (req, res) => {
+  const url = enlaceFacebook(req.body.url)
+  const descripcion = req.body.descripcion?.trim().slice(0, 200) || null
+  const [r] = await pool.query('INSERT INTO publicaciones_facebook (url, descripcion, autor_id) VALUES (?, ?, ?)', [url, descripcion, req.usuario.id])
+  res.status(201).json({ id: r.insertId, url })
+})
+
+router.delete('/facebook/:id', async (req, res) => {
+  await pool.query('DELETE FROM publicaciones_facebook WHERE id = ?', [entero(req.params.id, 'Publicación')])
+  res.json({ ok: true })
+})
+
 // ---------- Horarios ----------
 router.get('/grados/:id/horario', async (req, res) => {
   const [filas] = await pool.query(
