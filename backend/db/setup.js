@@ -243,6 +243,44 @@ await insertar('mensajes_contacto', {
   mensaje: 'Buenas tardes, quisiera saber qué documentos necesito para matricular a mi hijo en sexto grado.',
 })
 
+// Interacción estudiante-docente: muro de Matemáticas 10°A, mensajes y comentarios en una tarea
+const idUsuario = async (documento) => (await conn.query('SELECT id FROM usuarios WHERE documento = ?', [documento]))[0][0].id
+const estDemo = await idUsuario('1111111111')
+const estSantiago = await idUsuario('1001000002')
+
+const bienvenida = await insertar('publicaciones', {
+  carga_id: cargas[g10a]['Matemáticas'], autor_id: docentes.Demo, fijada: true, creado_en: '2026-09-22 07:00:00',
+  texto: '¡Bienvenidos al Periodo 4! Aquí publicaré las guías, avisos y fechas de entrega. Si tienen dudas sobre un tema, pregunten en los comentarios para que todos aprendamos.',
+})
+const recordatorio = await insertar('publicaciones', {
+  carga_id: cargas[g10a]['Matemáticas'], autor_id: docentes.Demo, creado_en: '2026-10-14 15:20:00',
+  texto: 'Recuerden que el proyecto de trigonometría se entrega el 7 de noviembre. Ya pueden ir formando los grupos de 3.',
+})
+await insertar('publicaciones', {
+  carga_id: cargas[g10a]['Matemáticas'], autor_id: estSantiago, creado_en: '2026-10-15 19:05:00',
+  texto: 'Profe, ¿para el proyecto podemos medir la cancha en lugar de un edificio?',
+})
+for (const [publicacion_id, autor_id, texto, creado_en] of [
+  [bienvenida, estDemo, '¡Gracias, profe!', '2026-09-22 08:10:00'],
+  [recordatorio, estDemo, '¿El informe puede ser en Word o tiene que ser PDF?', '2026-10-14 18:40:00'],
+  [recordatorio, docentes.Demo, 'Preferiblemente PDF, pero si solo tienen Word también lo recibo.', '2026-10-14 20:02:00'],
+]) {
+  await insertar('comentarios', { publicacion_id, autor_id, texto, creado_en })
+}
+
+for (const [remitente_id, destinatario_id, texto, creado_en, leido_en] of [
+  [estDemo, docentes.Demo, 'Buenas tardes profe, mañana no puedo asistir porque tengo cita médica. ¿Cómo hago para ponerme al día?', '2026-10-16 16:30:00', '2026-10-16 18:00:00'],
+  [docentes.Demo, estDemo, 'Tranquilo. Revisa la guía en el muro de Matemáticas y trae la excusa médica el lunes.', '2026-10-16 18:02:00', null],
+]) {
+  await insertar('mensajes', { remitente_id, destinatario_id, texto, creado_en, leido_en })
+}
+
+const [[informe]] = await conn.query("SELECT id FROM actividades WHERE titulo LIKE 'Informe de laboratorio%'")
+await insertar('comentarios_entrega', {
+  actividad_id: informe.id, matricula_id: matriculas[g10a][0], autor_id: estDemo, creado_en: '2026-10-17 10:15:00',
+  texto: 'Profe, ¿el informe lleva marco teórico o solo los resultados?',
+})
+
 await conn.end()
 
 console.log('✓ Datos de prueba cargados\n')

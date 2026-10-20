@@ -1,11 +1,19 @@
-/* Colores del escudo IEMM */
+/* Colores del escudo IEMM, en tonos suaves para no cansar la vista */
 :root {
-  --azul: #0a3d9e;
-  --azul-oscuro: #062a70;
-  --amarillo: #ffd60a;
-  --rojo: #e3161b;
+  --azul: #2a5599;
+  --azul-oscuro: #1c3d73;
+  --azul-claro: #4a76bd;
+  --azul-suave: #eaf0f9;
+  --amarillo: #eec94f;
+  --amarillo-suave: #fcf5dc;
+  --rojo: #cf4a43;
+  --rojo-suave: #fbecea;
+  --verde: #2e8656;
+  --verde-suave: #e6f3ec;
+  --fondo: #f4f6fa;
+  --borde: #e4e8ef;
   --blanco: #ffffff;
-  --negro: #111111;
+  --negro: #1f2633;
   --gris: #6b7280;
 }
 
@@ -28,7 +36,7 @@ body {
   justify-content: center;
   padding: 32px 16px;
   overflow: hidden;
-  background: radial-gradient(circle at 50% 0%, #1450c4 0%, var(--azul) 45%, var(--azul-oscuro) 100%);
+  background: radial-gradient(circle at 50% 0%, var(--azul-claro) 0%, var(--azul) 45%, var(--azul-oscuro) 100%);
 }
 
 /* Franjas amarilla-azul-roja como las del escudo */
@@ -36,6 +44,7 @@ body {
   position: absolute;
   inset: 0;
   pointer-events: none;
+  opacity: 0.35;
 }
 .franja {
   position: absolute;
@@ -44,7 +53,7 @@ body {
   transform: rotate(-12deg);
 }
 .franja.amarilla { top: 58%; height: 70px; background: var(--amarillo); }
-.franja.azul     { top: calc(58% + 70px); height: 40px; background: #1450c4; }
+.franja.azul     { top: calc(58% + 70px); height: 40px; background: var(--azul-claro); }
 .franja.roja     { top: calc(58% + 110px); height: 40px; background: var(--rojo); }
 
 .login-card {
@@ -54,8 +63,8 @@ body {
   max-width: 400px;
   background: var(--blanco);
   border-radius: 20px;
-  border-top: 6px solid var(--amarillo);
-  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.35);
+  border-top: 4px solid var(--amarillo);
+  box-shadow: 0 20px 50px rgba(15, 30, 60, 0.25);
   padding: 32px 28px 28px;
   display: flex;
   flex-direction: column;
@@ -101,7 +110,7 @@ body {
   grid-template-columns: repeat(3, 1fr);
   gap: 4px;
   padding: 4px;
-  background: #eef2fb;
+  background: var(--azul-suave);
   border-radius: 10px;
 }
 .rol {
@@ -116,8 +125,9 @@ body {
   cursor: pointer;
 }
 .rol.activo {
-  background: var(--azul);
-  color: var(--amarillo);
+  background: var(--blanco);
+  color: var(--azul);
+  box-shadow: 0 1px 3px rgba(15, 30, 60, 0.12);
 }
 
 .campo {
@@ -130,7 +140,7 @@ body {
 .campo input {
   width: 100%;
   padding: 12px 14px;
-  border: 2px solid #d6dcea;
+  border: 1.5px solid #d3dae6;
   border-radius: 10px;
   font: inherit;
   font-weight: 500;
@@ -160,7 +170,7 @@ body {
   margin: 0;
   padding: 10px 12px;
   border-radius: 8px;
-  background: #fde8e8;
+  background: var(--rojo-suave);
   color: var(--rojo);
   font-size: 0.85rem;
   font-weight: 700;
@@ -177,7 +187,7 @@ body {
   font-size: 1rem;
   font-weight: 900;
   cursor: pointer;
-  box-shadow: inset 0 -4px 0 var(--amarillo);
+  box-shadow: 0 2px 6px rgba(42, 85, 153, 0.22);
   transition: background 0.15s;
 }
 .btn-primario:hover:not(:disabled) { background: var(--azul-oscuro); }

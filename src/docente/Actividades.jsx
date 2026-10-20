@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { api, descargar } from '../api.js'
 import { Caja, ConDatos, Nota, Icono, Modal, Campo, Aviso, Vacio, useApi } from '../componentes/ui.jsx'
 import { TIPOS_ACTIVIDAD, fechaHora } from '../util.js'
+import { ComentariosTarea } from '../compartido/Interaccion.jsx'
 
 export default function ActividadesDocente({ seleccion: s, Selector }) {
   const ruta = s.cargaId && s.periodoId ? `/docente/cargas/${s.cargaId}/actividades?periodo=${s.periodoId}` : null
@@ -207,6 +208,7 @@ function Calificar({ id, cerrado, onCerrar }) {
   const consulta = useApi(`/docente/actividades/${id}`)
   const [filas, setFilas] = useState([])
   const [abierta, setAbierta] = useState(null)
+  const [hilo, setHilo] = useState(null)
   const [msg, setMsg] = useState({ tipo: '', texto: '' })
 
   useEffect(() => {
@@ -270,6 +272,9 @@ function Calificar({ id, cerrado, onCerrar }) {
                         ) : (
                           <span className="texto-suave">{a.entrega_en_linea ? 'Sin entregar' : 'Presencial'}</span>
                         )}
+                        <button className={f.comentarios > 0 ? 'enlace-comentarios con' : 'enlace-comentarios'} onClick={() => setHilo(f)}>
+                          <Icono nombre="chat_bubble_outline" /> {f.comentarios > 0 ? f.comentarios : 'Comentar'}
+                        </button>
                       </td>
                       <td>
                         <input className="input-nota" type="number" step="0.1" min="1" max="5" value={f.nota} disabled={cerrado}
@@ -294,6 +299,11 @@ function Calificar({ id, cerrado, onCerrar }) {
           </>
         )}
       </ConDatos>
+      {hilo && (
+        <Modal titulo={`Comentarios · ${hilo.nombre}`} onCerrar={() => { setHilo(null); consulta.recargar() }} ancho={560}>
+          <ComentariosTarea actividadId={id} matriculaId={hilo.matricula_id} para="tú y este estudiante" />
+        </Modal>
+      )}
     </Modal>
   )
 }

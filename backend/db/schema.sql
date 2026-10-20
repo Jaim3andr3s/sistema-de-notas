@@ -4,6 +4,10 @@
 SET NAMES utf8mb4;
 
 DROP TABLE IF EXISTS mensajes_contacto;
+DROP TABLE IF EXISTS comentarios_entrega;
+DROP TABLE IF EXISTS mensajes;
+DROP TABLE IF EXISTS comentarios;
+DROP TABLE IF EXISTS publicaciones;
 DROP TABLE IF EXISTS noticias;
 DROP TABLE IF EXISTS observaciones;
 DROP TABLE IF EXISTS entregas;
@@ -221,6 +225,62 @@ CREATE TABLE observaciones (
   INDEX idx_observaciones_matricula (matricula_id, fecha),
   CONSTRAINT fk_observaciones_matricula FOREIGN KEY (matricula_id) REFERENCES matriculas (id) ON DELETE CASCADE,
   CONSTRAINT fk_observaciones_autor     FOREIGN KEY (autor_id)     REFERENCES usuarios (id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ---------- Interacción estudiante-docente ----------
+
+-- Muro de cada asignatura de un grado (como un canal de Teams)
+CREATE TABLE publicaciones (
+  id              INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  carga_id        INT UNSIGNED NOT NULL,
+  autor_id        INT UNSIGNED NOT NULL,
+  texto           TEXT NOT NULL,
+  archivo         VARCHAR(100) NULL,
+  archivo_nombre  VARCHAR(200) NULL,
+  fijada          BOOLEAN NOT NULL DEFAULT FALSE,   -- el docente la deja de primera
+  creado_en       TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  INDEX idx_publicaciones_carga (carga_id, creado_en),
+  CONSTRAINT fk_publicaciones_carga FOREIGN KEY (carga_id) REFERENCES cargas (id) ON DELETE CASCADE,
+  CONSTRAINT fk_publicaciones_autor FOREIGN KEY (autor_id) REFERENCES usuarios (id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE comentarios (
+  id              INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  publicacion_id  INT UNSIGNED NOT NULL,
+  autor_id        INT UNSIGNED NOT NULL,
+  texto           TEXT NOT NULL,
+  creado_en       TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  INDEX idx_comentarios_publicacion (publicacion_id, creado_en),
+  CONSTRAINT fk_comentarios_publicacion FOREIGN KEY (publicacion_id) REFERENCES publicaciones (id) ON DELETE CASCADE,
+  CONSTRAINT fk_comentarios_autor       FOREIGN KEY (autor_id)       REFERENCES usuarios (id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Mensajes privados uno a uno
+CREATE TABLE mensajes (
+  id               INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  remitente_id     INT UNSIGNED NOT NULL,
+  destinatario_id  INT UNSIGNED NOT NULL,
+  texto            TEXT NOT NULL,
+  leido_en         DATETIME NULL,
+  creado_en        TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  INDEX idx_mensajes_destinatario (destinatario_id, leido_en),
+  INDEX idx_mensajes_par (remitente_id, destinatario_id, creado_en),
+  CONSTRAINT fk_mensajes_remitente    FOREIGN KEY (remitente_id)    REFERENCES usuarios (id) ON DELETE CASCADE,
+  CONSTRAINT fk_mensajes_destinatario FOREIGN KEY (destinatario_id) REFERENCES usuarios (id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Conversación privada entre un estudiante y el docente sobre una actividad
+CREATE TABLE comentarios_entrega (
+  id            INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  actividad_id  INT UNSIGNED NOT NULL,
+  matricula_id  INT UNSIGNED NOT NULL,
+  autor_id      INT UNSIGNED NOT NULL,
+  texto         TEXT NOT NULL,
+  creado_en     TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  INDEX idx_comentarios_entrega (actividad_id, matricula_id, creado_en),
+  CONSTRAINT fk_coment_entrega_actividad FOREIGN KEY (actividad_id) REFERENCES actividades (id) ON DELETE CASCADE,
+  CONSTRAINT fk_coment_entrega_matricula FOREIGN KEY (matricula_id) REFERENCES matriculas (id) ON DELETE CASCADE,
+  CONSTRAINT fk_coment_entrega_autor     FOREIGN KEY (autor_id)     REFERENCES usuarios (id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ---------- Sitio web público ----------

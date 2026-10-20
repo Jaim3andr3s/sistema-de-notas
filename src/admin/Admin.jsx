@@ -5,6 +5,7 @@ import { Consolidado, Boletines } from '../compartido/Reportes.jsx'
 import Observador from '../compartido/Observador.jsx'
 import Perfil from '../compartido/Perfil.jsx'
 import SitioWeb from './SitioWeb.jsx'
+import Mensajes from '../compartido/Mensajes.jsx'
 import { api } from '../api.js'
 import { ROLES, fecha, hoy } from '../util.js'
 
@@ -17,6 +18,7 @@ const MENU = [
   { id: 'boletines', nombre: 'Boletines', icono: 'description' },
   { id: 'observador', nombre: 'Observador', icono: 'fact_check' },
   { id: 'anuncios', nombre: 'Anuncios', icono: 'campaign' },
+  { id: 'mensajes', nombre: 'Mensajes', icono: 'chat' },
   { id: 'sitio', nombre: 'Sitio web', icono: 'language' },
   { id: 'perfil', nombre: 'Mi perfil', icono: 'person' },
 ]
@@ -32,6 +34,7 @@ export default function Admin({ usuario, onSalir }) {
     boletines: <Boletines />,
     observador: <Observador usuario={usuario} />,
     anuncios: <Anuncios />,
+    mensajes: <Mensajes usuario={usuario} />,
     sitio: <SitioWeb />,
     perfil: <Perfil usuario={usuario} />,
   }
