@@ -560,3 +560,15 @@ i.periodo { background: var(--rojo); }
 .cal-proximos button:hover { color: var(--azul); }
 .cal-proximos time { flex-shrink: 0; width: 52px; font-weight: 700; color: var(--azul); }
 @media (max-width: 1024px) { .calendario-grid { grid-template-columns: 1fr; } }
+
+/* ---------- Planes de mejoramiento ---------- */
+.planes { display: flex; flex-direction: column; gap: 14px; }
+.plan { display: flex; flex-direction: column; gap: 10px; padding: 16px 18px; border: 1px solid var(--borde); border-left: 4px solid #e6b93a; border-radius: 12px; }
+.plan.entregado { border-left-color: var(--azul-claro); }
+.plan.aprobado { border-left-color: #3aa66b; }
+.plan.no_aprobado { border-left-color: var(--rojo); }
+.plan header { display: flex; align-items: flex-start; gap: 10px; }
+.plan header small { display: flex; align-items: center; gap: 6px; margin-top: 4px; color: var(--gris); font-size: 0.82rem; }
+.plan .descripcion { margin: 0; }
+.plan > .texto-suave { display: flex; align-items: center; gap: 4px; margin: 0; }
+.plan > .texto-suave .material-icons { font-size: 17px; }

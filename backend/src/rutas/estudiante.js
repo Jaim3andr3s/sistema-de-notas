@@ -200,6 +200,40 @@ router.post('/actividades/:id/entrega', subir.single('archivo'), async (req, res
   res.status(201).json({ ok: true, nota })
 })
 
+// ---------- Planes de mejoramiento ----------
+router.get('/mejoramiento', async (req, res) => {
+  const m = await matriculaActual(req.estudianteUid)
+  const [planes] = await pool.query(
+    `SELECT p.id, p.descripcion, p.fecha_limite, p.estado, p.entrega_texto, p.entrega_archivo, p.entrega_archivo_nombre, p.entregado_en,
+            p.nota_recuperacion, p.observacion_docente, p.evaluado_en, s.nombre AS asignatura, pe.nombre AS periodo,
+            CONCAT(u.nombres, ' ', u.apellidos) AS docente, n.nota AS nota_periodo
+       FROM planes_mejoramiento p
+       JOIN cargas c ON c.id = p.carga_id JOIN asignaturas s ON s.id = c.asignatura_id JOIN periodos pe ON pe.id = p.periodo_id
+       LEFT JOIN usuarios u ON u.id = c.docente_id
+       LEFT JOIN notas n ON n.matricula_id = p.matricula_id AND n.carga_id = p.carga_id AND n.periodo_id = p.periodo_id
+      WHERE p.matricula_id = ?
+      ORDER BY (p.estado IN ('aprobado', 'no_aprobado')), p.fecha_limite`,
+    [m.id]
+  )
+  res.json(planes)
+})
+
+router.post('/mejoramiento/:id/entrega', subir.single('archivo'), async (req, res) => {
+  const m = await matriculaActual(req.estudianteUid)
+  const [[plan]] = await pool.query('SELECT id, estado FROM planes_mejoramiento WHERE id = ? AND matricula_id = ?', [entero(req.params.id, 'Plan'), m.id])
+  if (!plan) throw new ErrorHttp(404, 'Plan no encontrado')
+  if (['aprobado', 'no_aprobado'].includes(plan.estado)) throw new ErrorHttp(409, 'Este plan ya fue evaluado')
+  const texto = req.body.texto?.trim() || null
+  if (!texto && !req.file) throw new ErrorHttp(400, 'Escribe una respuesta o adjunta un archivo')
+  await pool.query(
+    `UPDATE planes_mejoramiento SET estado = 'entregado', entrega_texto = ?, entregado_en = NOW(),
+            entrega_archivo = COALESCE(?, entrega_archivo), entrega_archivo_nombre = COALESCE(?, entrega_archivo_nombre)
+      WHERE id = ?`,
+    [texto, req.file?.filename ?? null, req.file?.originalname ?? null, plan.id]
+  )
+  res.json({ ok: true })
+})
+
 // ---------- Semáforo ----------
 router.get('/semaforo', async (req, res) => {
   const m = await matriculaActual(req.estudianteUid)

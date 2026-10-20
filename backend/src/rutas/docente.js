@@ -255,6 +255,85 @@ router.put('/actividades/:id/calificaciones', async (req, res) => {
   res.json({ ok: true })
 })
 
+// ---------- Planes de mejoramiento ----------
+// Estudiantes de la carga con su nota del periodo y su plan (si lo tienen)
+router.get('/cargas/:id/mejoramiento', async (req, res) => {
+  const carga = await cargaPermitida(req.usuario, entero(req.params.id, 'Carga'))
+  const periodo = await periodoDelAnio(entero(req.query.periodo, 'Periodo'), carga.anio)
+  const [estudiantes] = await pool.query(
+    `SELECT m.id AS matricula_id, CONCAT(u.apellidos, ' ', u.nombres) AS nombre, n.nota,
+            p.id AS plan_id, p.descripcion, p.fecha_limite, p.estado, p.entrega_texto, p.entrega_archivo, p.entrega_archivo_nombre,
+            p.entregado_en, p.nota_recuperacion, p.observacion_docente
+       FROM matriculas m
+       JOIN estudiantes s ON s.id = m.estudiante_id
+       JOIN usuarios u    ON u.id = s.usuario_id
+       LEFT JOIN notas n  ON n.matricula_id = m.id AND n.carga_id = ? AND n.periodo_id = ?
+       LEFT JOIN planes_mejoramiento p ON p.matricula_id = m.id AND p.carga_id = ? AND p.periodo_id = ?
+      WHERE m.grado_id = ? AND m.estado = 'activa'
+      ORDER BY (n.nota IS NULL), n.nota, u.apellidos, u.nombres`,
+    [carga.id, periodo.id, carga.id, periodo.id, carga.grado_id]
+  )
+  res.json({ carga, periodo, estudiantes })
+})
+
+// Crea el mismo plan para varios estudiantes: { periodo_id, matriculas: [], descripcion, fecha_limite }
+router.post('/cargas/:id/mejoramiento', async (req, res) => {
+  const carga = await cargaPermitida(req.usuario, entero(req.params.id, 'Carga'))
+  requerido(req.body, ['periodo_id', 'descripcion', 'fecha_limite'])
+  const periodo = await periodoDelAnio(entero(req.body.periodo_id, 'Periodo'), carga.anio)
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(req.body.fecha_limite)) throw new ErrorHttp(400, 'Fecha límite inválida')
+  if (!Array.isArray(req.body.matriculas) || !req.body.matriculas.length) throw new ErrorHttp(400, 'Elige al menos un estudiante')
+  const validos = await matriculasActivas(carga.grado_id)
+  const ids = req.body.matriculas.map((m) => entero(m, 'Matrícula'))
+  if (ids.some((m) => !validos.has(m))) throw new ErrorHttp(400, `Hay estudiantes que no pertenecen a ${carga.grado}`)
+
+  for (const m of ids) {
+    await pool.query(
+      `INSERT INTO planes_mejoramiento (matricula_id, carga_id, periodo_id, descripcion, fecha_limite, creado_por) VALUES (?, ?, ?, ?, ?, ?)
+       ON DUPLICATE KEY UPDATE descripcion = VALUES(descripcion), fecha_limite = VALUES(fecha_limite)`,
+      [m, carga.id, periodo.id, String(req.body.descripcion).trim(), req.body.fecha_limite, req.usuario.id]
+    )
+  }
+  notificar(await familias(ids), {
+    tipo: 'mejoramiento', titulo: `Plan de mejoramiento en ${carga.asignatura}`,
+    texto: `${periodo.nombre} · entrega hasta el ${fechaCorta(req.body.fecha_limite)}`, vista: 'mejoramiento',
+  })
+  res.status(201).json({ ok: true, creados: ids.length })
+})
+
+// Evalúa un plan: { estado: aprobado|no_aprobado, nota_recuperacion, observacion_docente, actualizar_nota }
+router.put('/mejoramiento/:id', async (req, res) => {
+  const [[plan]] = await pool.query('SELECT * FROM planes_mejoramiento WHERE id = ?', [entero(req.params.id, 'Plan')])
+  if (!plan) throw new ErrorHttp(404, 'Plan no encontrado')
+  const carga = await cargaPermitida(req.usuario, plan.carga_id)
+  if (!['aprobado', 'no_aprobado'].includes(req.body.estado)) throw new ErrorHttp(400, 'El estado debe ser aprobado o no_aprobado')
+  const nota = validarNota(req.body.nota_recuperacion ?? null)
+
+  // Si se pide, la nota de recuperación reemplaza la del periodo (solo con el periodo abierto)
+  let notaActualizada = false
+  if (req.body.actualizar_nota && nota != null) {
+    const periodo = await periodoDelAnio(plan.periodo_id, carga.anio)
+    exigirPeriodoAbierto(periodo)
+    await pool.query(
+      `INSERT INTO notas (matricula_id, carga_id, periodo_id, nota) VALUES (?, ?, ?, ?)
+       ON DUPLICATE KEY UPDATE nota = VALUES(nota)`,
+      [plan.matricula_id, plan.carga_id, plan.periodo_id, nota]
+    )
+    notaActualizada = true
+  }
+  await pool.query(
+    'UPDATE planes_mejoramiento SET estado = ?, nota_recuperacion = ?, observacion_docente = ?, evaluado_en = NOW() WHERE id = ?',
+    [req.body.estado, nota, req.body.observacion_docente?.trim() || null, plan.id]
+  )
+  notificar(await familias([plan.matricula_id]), {
+    tipo: 'mejoramiento',
+    titulo: `Plan de mejoramiento ${req.body.estado === 'aprobado' ? 'aprobado' : 'no aprobado'} en ${carga.asignatura}`,
+    texto: nota != null ? `Nota de recuperación: ${nota.toFixed(1)}` : null,
+    vista: 'mejoramiento',
+  })
+  res.json({ ok: true, nota_actualizada: notaActualizada })
+})
+
 // ---------- Asistencia ----------
 router.get('/cargas/:id/asistencia', async (req, res) => {
   const carga = await cargaPermitida(req.usuario, entero(req.params.id, 'Carga'))

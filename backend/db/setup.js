@@ -312,6 +312,18 @@ await insertar('mensajes', {
   texto: 'Buenas noches profe, soy la mamá de Estudiante Demo. Quisiera saber cómo va en Química este periodo.',
 })
 
+// Planes de mejoramiento de Matemáticas 10°A (periodo 3): el estudiante demo y quien perdió el periodo
+const [enRiesgo] = await conn.query(
+  'SELECT matricula_id FROM notas WHERE carga_id = ? AND periodo_id = ? AND (nota < 3.0 OR matricula_id = ?)',
+  [cargas[g10a]['Matemáticas'], periodos[2], matriculas[g10a][0]]
+)
+for (const { matricula_id } of enRiesgo) {
+  await insertar('planes_mejoramiento', {
+    matricula_id, carga_id: cargas[g10a]['Matemáticas'], periodo_id: periodos[2], creado_por: docentes.Demo, fecha_limite: '2026-10-30',
+    descripcion: 'Resolver el taller de refuerzo de razones trigonométricas (ejercicios 1 al 20) y presentar una sustentación oral de 10 minutos.',
+  })
+}
+
 // Notificaciones de ejemplo para el estudiante y el acudiente demo
 for (const destino of [estDemo, acudienteDemo]) {
   for (const [tipo, titulo, texto, vista, creado_en] of [

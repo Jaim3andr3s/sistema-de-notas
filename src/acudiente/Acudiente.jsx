@@ -14,6 +14,7 @@ const MENU = [
   { id: 'notas', nombre: 'Notas', icono: 'grading' },
   { id: 'semaforo', nombre: 'Semáforo', icono: 'traffic' },
   { id: 'actividades', nombre: 'Tareas y actividades', icono: 'assignment' },
+  { id: 'mejoramiento', nombre: 'Mejoramiento', icono: 'trending_up' },
   { id: 'mensajes', nombre: 'Mensajes', icono: 'chat' },
   { id: 'calendario', nombre: 'Calendario', icono: 'event' },
   { id: 'horario', nombre: 'Horario', icono: 'calendar_month' },
